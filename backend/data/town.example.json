@@ -1,0 +1,13 @@
+{
+  "name": "",
+  "seeds": 0,
+  "buildings": {
+    "generalStore": true,
+    "blacksmith": false,
+    "weaversHut": false,
+    "inn": false,
+    "shrine": false,
+    "watchtower": false,
+    "garden": false
+  }
+}

@@ -1,0 +1,563 @@
+/* Bloomburrow Hub - Styles */
+/* Matches the warm, cozy forest aesthetic of the printed materials */
+
+:root {
+  --cream: #FDF6E3;
+  --parchment: #F5E6D0;
+  --warm-tan: #F5DEB3;
+  --warm-brown: #8B4513;
+  --dark-text: #3D2314;
+  --forest-green: #228B22;
+  --forest-dark: #1B5E20;
+  --golden: #DAA520;
+  --soft-orange: #E8913A;
+  --berry-red: #C04040;
+  --sky-blue: #6CA6CD;
+  --soft-purple: #9370DB;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: linear-gradient(135deg, var(--cream) 0%, var(--parchment) 100%);
+  min-height: 100vh;
+  color: var(--dark-text);
+}
+
+/* === App Layout === */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background: var(--warm-brown);
+  color: var(--cream);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.app-header h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.app-header nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.app-header nav button {
+  background: transparent;
+  border: 2px solid var(--cream);
+  color: var(--cream);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.app-header nav button:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.app-header nav button.active {
+  background: var(--cream);
+  color: var(--warm-brown);
+}
+
+.app-main {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* === Session View === */
+
+.session-view {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+  height: calc(100vh - 120px);
+}
+
+.session-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.session-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* === Cards / Panels === */
+
+.card {
+  background: var(--cream);
+  border: 2px solid var(--warm-brown);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.card-header {
+  background: var(--forest-green);
+  color: var(--cream);
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.card-header.brown { background: var(--warm-brown); }
+.card-header.orange { background: var(--soft-orange); }
+.card-header.red { background: var(--berry-red); }
+.card-header.blue { background: var(--sky-blue); }
+.card-header.purple { background: var(--soft-purple); }
+.card-header.golden { background: var(--golden); color: var(--dark-text); }
+
+.card-body {
+  padding: 1rem;
+}
+
+/* === Chat Window === */
+
+.chat-window {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chat-message {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  max-width: 85%;
+}
+
+.chat-message.player {
+  background: var(--sky-blue);
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message.dm {
+  background: var(--warm-tan);
+  color: var(--dark-text);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-top: 2px solid var(--warm-brown);
+  background: var(--parchment);
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--warm-brown);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 1rem;
+  background: var(--cream);
+}
+
+.chat-input input:focus {
+  outline: none;
+  border-color: var(--forest-green);
+}
+
+.chat-input button {
+  padding: 0.75rem 1.5rem;
+  background: var(--forest-green);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.chat-input button:hover {
+  background: var(--forest-dark);
+}
+
+/* === Party Status === */
+
+.party-status .character-card {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--warm-tan);
+}
+
+.party-status .character-card:last-child {
+  border-bottom: none;
+}
+
+.character-card h4 {
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.character-card .species {
+  font-size: 0.8rem;
+  color: var(--forest-green);
+  margin-bottom: 0.5rem;
+}
+
+.hearts, .threads {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0.25rem;
+}
+
+.heart {
+  color: var(--berry-red);
+  font-size: 1.1rem;
+}
+
+.heart.empty {
+  opacity: 0.3;
+}
+
+.thread {
+  color: var(--golden);
+  font-size: 1.1rem;
+}
+
+.thread.empty {
+  opacity: 0.3;
+}
+
+/* === Enemies === */
+
+.enemies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.enemy-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--parchment);
+  border-radius: 6px;
+}
+
+.enemy-card .name {
+  font-weight: 600;
+}
+
+/* === Dice Roller === */
+
+.dice-roller .dice-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.dice-btn {
+  width: 50px;
+  height: 50px;
+  border: 2px solid var(--warm-brown);
+  border-radius: 8px;
+  background: var(--cream);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dice-btn:hover {
+  background: var(--warm-tan);
+  transform: scale(1.05);
+}
+
+.dice-btn.d20 { border-color: var(--forest-green); }
+.dice-btn.d4 { border-color: var(--sky-blue); }
+.dice-btn.d6 { border-color: var(--soft-orange); }
+.dice-btn.d8 { border-color: var(--soft-purple); }
+.dice-btn.d10 { border-color: var(--berry-red); }
+
+.dice-result {
+  text-align: center;
+  padding: 1rem;
+  background: var(--parchment);
+  border-radius: 8px;
+}
+
+.dice-result .total {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.dice-result .threshold {
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.dice-result .threshold.success {
+  background: var(--forest-green);
+  color: white;
+}
+
+.dice-result .threshold.partial {
+  background: var(--soft-orange);
+  color: white;
+}
+
+.dice-result .threshold.failure {
+  background: var(--berry-red);
+  color: white;
+}
+
+/* === Roster View === */
+
+.roster-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.roster-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.roster-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.roster-card .level {
+  float: right;
+  background: var(--golden);
+  color: var(--dark-text);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.roster-card .stats {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.roster-card .stat {
+  font-size: 0.85rem;
+}
+
+.roster-card .stat span {
+  font-weight: 700;
+}
+
+.add-character-card {
+  border: 2px dashed var(--warm-brown);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.add-character-card:hover {
+  background: rgba(139, 69, 19, 0.05);
+}
+
+.add-character-card span {
+  font-size: 3rem;
+  color: var(--warm-brown);
+}
+
+/* === Town View === */
+
+.town-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.building-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.building-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--parchment);
+  border-radius: 8px;
+}
+
+.building-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--forest-green);
+}
+
+.building-item .name {
+  font-weight: 600;
+  flex: 1;
+}
+
+.building-item .cost {
+  color: var(--golden);
+  font-weight: 600;
+}
+
+.building-item.locked {
+  opacity: 0.6;
+}
+
+/* === Character Sheet Modal === */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--cream);
+  border: 3px solid var(--warm-brown);
+  border-radius: 16px;
+  padding: 1.5rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 2px solid var(--warm-brown);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 1rem;
+  background: white;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--forest-green);
+}
+
+.stat-inputs {
+  display: flex;
+  gap: 1rem;
+}
+
+.stat-input {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-input label {
+  font-size: 0.85rem;
+}
+
+.stat-input input {
+  text-align: center;
+  font-weight: 700;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.btn {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.btn-primary {
+  background: var(--forest-green);
+  color: white;
+}
+
+.btn-secondary {
+  background: var(--warm-tan);
+  color: var(--dark-text);
+}
+
+/* === Utilities === */
+
+.text-center { text-align: center; }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
