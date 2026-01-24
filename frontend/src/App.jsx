@@ -23,6 +23,13 @@ function App() {
     fetchTown()
   }, [])
 
+  // Refetch session when switching to session view
+  useEffect(() => {
+    if (view === 'session') {
+      fetchSession()
+    }
+  }, [view])
+
   const fetchSession = async () => {
     try {
       const res = await fetch(`${API_BASE}/session`)
