@@ -12,13 +12,13 @@ const BUILDINGS = [
   { key: 'garden', name: 'Garden', cost: 15, desc: 'Grow healing items' },
 ]
 
-function TownView({ town, onUpdate }) {
+function TownView({ town, onUpdate, campaignId }) {
   const [editingName, setEditingName] = useState(false)
   const [townName, setTownName] = useState(town?.name || '')
 
   const saveTownName = async () => {
     try {
-      await fetch(`${API_BASE}/town`, {
+      await fetch(`${API_BASE}/campaigns/${campaignId}/town`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: townName })
@@ -42,7 +42,7 @@ function TownView({ town, onUpdate }) {
     }
 
     try {
-      await fetch(`${API_BASE}/town`, {
+      await fetch(`${API_BASE}/campaigns/${campaignId}/town`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -58,7 +58,7 @@ function TownView({ town, onUpdate }) {
 
   const addSeeds = async (amount) => {
     try {
-      await fetch(`${API_BASE}/town`, {
+      await fetch(`${API_BASE}/campaigns/${campaignId}/town`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seeds: (town?.seeds || 0) + amount })
@@ -108,23 +108,37 @@ function TownView({ town, onUpdate }) {
             <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--golden)' }}>
               🌰 {town.seeds} Seeds
             </div>
-            <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-              <button 
-                className="btn btn-secondary" 
+            <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => addSeeds(-1)}
+                style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
+              >
+                -1
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => addSeeds(1)}
+                style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
+              >
+                +1
+              </button>
+              <button
+                className="btn btn-secondary"
                 onClick={() => addSeeds(5)}
                 style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
               >
                 +5
               </button>
-              <button 
-                className="btn btn-secondary" 
+              <button
+                className="btn btn-secondary"
                 onClick={() => addSeeds(10)}
                 style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
               >
                 +10
               </button>
-              <button 
-                className="btn btn-secondary" 
+              <button
+                className="btn btn-secondary"
                 onClick={() => addSeeds(20)}
                 style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
               >

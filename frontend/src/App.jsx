@@ -4,35 +4,101 @@ import RosterView from './components/RosterView'
 import TownView from './components/TownView'
 import SessionPanel from './components/SessionPanel'
 import ChatWindow from './components/ChatWindow'
-import DiceRoller from './components/DiceRoller'
 import PartyStatus from './components/PartyStatus'
+import ImagePanel from './components/ImagePanel'
+import CampaignSelector from './components/CampaignSelector'
+import SettingsModal from './components/SettingsModal'
+import InCampaignHeader from './components/InCampaignHeader'
 
 const API_BASE = '/api'
 
 function App() {
+  // Campaign state
+  const [currentView, setCurrentView] = useState('campaign-select') // 'campaign-select' | 'in-campaign'
+  const [campaigns, setCampaigns] = useState([])
+  const [activeCampaignId, setActiveCampaignId] = useState(null)
+  const [activeCampaign, setActiveCampaign] = useState(null)
+  const [showSettings, setShowSettings] = useState(false)
+
+  // In-campaign state
   const [view, setView] = useState('session') // 'session', 'roster', 'town'
   const [session, setSession] = useState(null)
   const [roster, setRoster] = useState([])
   const [town, setTown] = useState(null)
   const [selectedCharacter, setSelectedCharacter] = useState(null)
 
-  // Fetch initial data
+  // Fetch campaigns on mount
   useEffect(() => {
-    fetchSession()
-    fetchRoster()
-    fetchTown()
+    fetchCampaigns()
   }, [])
+
+  // When campaign is selected, fetch campaign data
+  useEffect(() => {
+    if (activeCampaignId && currentView === 'in-campaign') {
+      fetchSession()
+      fetchRoster()
+      fetchTown()
+    }
+  }, [activeCampaignId, currentView])
 
   // Refetch session when switching to session view
   useEffect(() => {
-    if (view === 'session') {
+    if (view === 'session' && activeCampaignId) {
       fetchSession()
     }
   }, [view])
 
-  const fetchSession = async () => {
+  // === Campaign Functions ===
+
+  const fetchCampaigns = async (autoSelect = true) => {
     try {
-      const res = await fetch(`${API_BASE}/session`)
+      const res = await fetch(`${API_BASE}/campaigns`)
+      const data = await res.json()
+      setCampaigns(data.campaigns || [])
+
+      // If there's only one campaign and autoSelect is true, auto-select it
+      if (autoSelect && data.campaigns?.length === 1) {
+        selectCampaign(data.campaigns[0].id)
+      }
+    } catch (err) {
+      console.error('Failed to fetch campaigns:', err)
+    }
+  }
+
+  const selectCampaign = async (campaignId) => {
+    try {
+      // Update lastPlayed on server
+      await fetch(`${API_BASE}/campaigns/${campaignId}/select`, {
+        method: 'PUT'
+      })
+
+      // Find the campaign in our list
+      const campaign = campaigns.find(c => c.id === campaignId) ||
+        (await fetch(`${API_BASE}/campaigns/${campaignId}`).then(r => r.json()))
+
+      setActiveCampaignId(campaignId)
+      setActiveCampaign(campaign)
+      setCurrentView('in-campaign')
+      setView('session') // Default to session view
+    } catch (err) {
+      console.error('Failed to select campaign:', err)
+    }
+  }
+
+  const switchCampaign = () => {
+    setCurrentView('campaign-select')
+    setSession(null)
+    setRoster([])
+    setTown(null)
+    fetchCampaigns(false) // Refresh campaign list without auto-select
+  }
+
+  // === Data Fetching (Campaign-Scoped) ===
+
+  const fetchSession = async () => {
+    if (!activeCampaignId) return
+    try {
+      const res = await fetch(`${API_BASE}/campaigns/${activeCampaignId}/session`)
       const data = await res.json()
       setSession(data)
     } catch (err) {
@@ -41,8 +107,9 @@ function App() {
   }
 
   const fetchRoster = async () => {
+    if (!activeCampaignId) return
     try {
-      const res = await fetch(`${API_BASE}/characters`)
+      const res = await fetch(`${API_BASE}/campaigns/${activeCampaignId}/characters`)
       const data = await res.json()
       setRoster(data)
     } catch (err) {
@@ -51,8 +118,9 @@ function App() {
   }
 
   const fetchTown = async () => {
+    if (!activeCampaignId) return
     try {
-      const res = await fetch(`${API_BASE}/town`)
+      const res = await fetch(`${API_BASE}/campaigns/${activeCampaignId}/town`)
       const data = await res.json()
       setTown(data)
     } catch (err) {
@@ -60,9 +128,12 @@ function App() {
     }
   }
 
+  // === Action Handlers (Campaign-Scoped) ===
+
   const handleCreateCharacter = async (character) => {
+    if (!activeCampaignId) return
     try {
-      const res = await fetch(`${API_BASE}/characters`, {
+      const res = await fetch(`${API_BASE}/campaigns/${activeCampaignId}/characters`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(character)
@@ -76,8 +147,9 @@ function App() {
   }
 
   const handleStartSession = async (quest, location, partyIds) => {
+    if (!activeCampaignId) return
     try {
-      const res = await fetch(`${API_BASE}/session/start`, {
+      const res = await fetch(`${API_BASE}/campaigns/${activeCampaignId}/session/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quest, location, partyIds })
@@ -91,8 +163,9 @@ function App() {
   }
 
   const handleUpdateSession = async (updates) => {
+    if (!activeCampaignId) return
     try {
-      const res = await fetch(`${API_BASE}/session/update`, {
+      const res = await fetch(`${API_BASE}/campaigns/${activeCampaignId}/session/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
@@ -105,10 +178,11 @@ function App() {
   }
 
   const handleEndSession = async (outcome) => {
+    if (!activeCampaignId) return
     if (!confirm(`End the run with "${outcome}"?`)) return
 
     try {
-      await fetch(`${API_BASE}/session/end`, {
+      await fetch(`${API_BASE}/campaigns/${activeCampaignId}/session/end`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ outcome })
@@ -120,31 +194,38 @@ function App() {
     }
   }
 
+  // === Render ===
+
+  // Campaign selector view
+  if (currentView === 'campaign-select') {
+    return (
+      <div className="app">
+        <CampaignSelector
+          campaigns={campaigns}
+          onSelectCampaign={selectCampaign}
+          onOpenSettings={() => setShowSettings(true)}
+        />
+
+        {showSettings && (
+          <SettingsModal
+            campaigns={campaigns}
+            onClose={() => setShowSettings(false)}
+            onRefresh={() => fetchCampaigns(false)}
+          />
+        )}
+      </div>
+    )
+  }
+
+  // In-campaign view
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>🌿 Bloomburrow Hub</h1>
-        <nav>
-          <button 
-            className={view === 'session' ? 'active' : ''} 
-            onClick={() => setView('session')}
-          >
-            Adventure
-          </button>
-          <button 
-            className={view === 'roster' ? 'active' : ''} 
-            onClick={() => setView('roster')}
-          >
-            Roster
-          </button>
-          <button 
-            className={view === 'town' ? 'active' : ''} 
-            onClick={() => setView('town')}
-          >
-            Town
-          </button>
-        </nav>
-      </header>
+      <InCampaignHeader
+        campaign={activeCampaign}
+        view={view}
+        setView={setView}
+        onSwitchCampaign={switchCampaign}
+      />
 
       <main className="app-main">
         {view === 'session' && (
@@ -153,6 +234,8 @@ function App() {
               <ChatWindow
                 session={session}
                 onSessionUpdate={handleUpdateSession}
+                onRefreshSession={fetchSession}
+                campaignId={activeCampaignId}
               />
             </div>
             <div className="session-right">
@@ -160,29 +243,48 @@ function App() {
                 session={session}
                 onUpdate={handleUpdateSession}
               />
-              <DiceRoller />
+              <ImagePanel session={session} />
               <SessionPanel
                 session={session}
                 onEndSession={handleEndSession}
               />
             </div>
+            <div className="scroll-btns">
+              <button
+                className="scroll-btn up"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                title="Scroll to top"
+              >
+                ↑
+              </button>
+              <button
+                className="scroll-btn down"
+                onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
+                title="Scroll to bottom"
+              >
+                ↓
+              </button>
+            </div>
           </div>
         )}
 
         {view === 'roster' && (
-          <RosterView 
+          <RosterView
             roster={roster}
             onCreateCharacter={() => setSelectedCharacter({})}
             onSelectCharacter={setSelectedCharacter}
             onStartSession={handleStartSession}
             sessionActive={session?.active}
+            onRefresh={fetchRoster}
+            campaignId={activeCampaignId}
           />
         )}
 
         {view === 'town' && (
-          <TownView 
+          <TownView
             town={town}
             onUpdate={fetchTown}
+            campaignId={activeCampaignId}
           />
         )}
       </main>
@@ -190,7 +292,7 @@ function App() {
       {selectedCharacter !== null && (
         <div className="modal-overlay" onClick={() => setSelectedCharacter(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <CharacterSheet 
+            <CharacterSheet
               character={selectedCharacter}
               onSave={handleCreateCharacter}
               onCancel={() => setSelectedCharacter(null)}
