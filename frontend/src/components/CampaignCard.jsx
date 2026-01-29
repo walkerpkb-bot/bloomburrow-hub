@@ -18,7 +18,7 @@ function CampaignCard({ campaign, onClick }) {
   }
 
   return (
-    <div className="campaign-card" onClick={onClick}>
+    <div className={`campaign-card ${campaign.isDraft ? 'is-draft' : ''}`} onClick={onClick}>
       {/* Banner Image */}
       <div
         className="campaign-card-banner"
@@ -27,7 +27,11 @@ function CampaignCard({ campaign, onClick }) {
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         } : {}}
-      />
+      >
+        {campaign.isDraft && (
+          <div className="campaign-card-draft-banner">Draft - Incomplete</div>
+        )}
+      </div>
 
       {/* Card Body */}
       <div className="campaign-card-body">

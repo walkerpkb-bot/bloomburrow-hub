@@ -26,6 +26,7 @@ function App() {
   const [roster, setRoster] = useState([])
   const [town, setTown] = useState(null)
   const [selectedCharacter, setSelectedCharacter] = useState(null)
+  const [systemConfig, setSystemConfig] = useState(null)
 
   // Fetch campaigns on mount
   useEffect(() => {
@@ -35,6 +36,7 @@ function App() {
   // When campaign is selected, fetch campaign data
   useEffect(() => {
     if (activeCampaignId && currentView === 'in-campaign') {
+      fetchSystemConfig()
       fetchSession()
       fetchRoster()
       fetchTown()
@@ -90,10 +92,22 @@ function App() {
     setSession(null)
     setRoster([])
     setTown(null)
+    setSystemConfig(null)
     fetchCampaigns(false) // Refresh campaign list without auto-select
   }
 
   // === Data Fetching (Campaign-Scoped) ===
+
+  const fetchSystemConfig = async () => {
+    if (!activeCampaignId) return
+    try {
+      const res = await fetch(`${API_BASE}/campaigns/${activeCampaignId}/system`)
+      const data = await res.json()
+      setSystemConfig(data)
+    } catch (err) {
+      console.error('Failed to fetch system config:', err)
+    }
+  }
 
   const fetchSession = async () => {
     if (!activeCampaignId) return
@@ -182,6 +196,24 @@ function App() {
     if (!confirm(`End the run with "${outcome}"?`)) return
 
     try {
+      // First complete the authored run if applicable
+      try {
+        await fetch(`${API_BASE}/campaigns/${activeCampaignId}/complete-run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            outcome,
+            facts_learned: [],
+            npcs_met: [],
+            locations_visited: []
+          })
+        })
+      } catch (runErr) {
+        // Ignore if no active authored run (freestyle campaign)
+        console.log('No authored run to complete (freestyle campaign)')
+      }
+
+      // Then end the session
       await fetch(`${API_BASE}/campaigns/${activeCampaignId}/session/end`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,6 +309,7 @@ function App() {
             sessionActive={session?.active}
             onRefresh={fetchRoster}
             campaignId={activeCampaignId}
+            systemConfig={systemConfig}
           />
         )}
 
@@ -285,6 +318,7 @@ function App() {
             town={town}
             onUpdate={fetchTown}
             campaignId={activeCampaignId}
+            systemConfig={systemConfig}
           />
         )}
       </main>
@@ -296,6 +330,7 @@ function App() {
               character={selectedCharacter}
               onSave={handleCreateCharacter}
               onCancel={() => setSelectedCharacter(null)}
+              systemConfig={systemConfig}
             />
           </div>
         </div>

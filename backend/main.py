@@ -18,6 +18,25 @@ import httpx
 import anthropic
 import replicate
 from dotenv import load_dotenv
+import random
+
+# Campaign schema and DM context imports
+from campaign_schema import (
+    CampaignContent,
+    CampaignState,
+    CampaignSystem,
+    NPCState,
+    RunTriggerType,
+    validate_campaign_content,
+    BLOOMBURROW_SYSTEM,
+    DEFAULT_SYSTEM
+)
+from dm_context_builder import (
+    build_dm_system_injection,
+    build_dm_system_prompt,
+    build_rules_reference,
+    build_lore_section
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -37,6 +56,7 @@ app.add_middleware(
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "prompts")
 IMAGES_DIR = os.path.join(DATA_DIR, "images")
+TEMPLATES_DIR = os.path.join(DATA_DIR, "templates")
 
 # Ensure images directory exists
 os.makedirs(IMAGES_DIR, exist_ok=True)
@@ -150,13 +170,72 @@ class CampaignCreate(BaseModel):
     name: str
     description: str = ""
     currencyName: str = "gold"
+    template_id: Optional[str] = None  # Optional template to use for system config
 
 class CampaignUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     currencyName: Optional[str] = None
 
+# === Template Endpoints ===
+
+@app.get("/templates")
+def get_templates():
+    """List all available system templates"""
+    templates = []
+    if os.path.exists(TEMPLATES_DIR):
+        for filename in os.listdir(TEMPLATES_DIR):
+            if filename.endswith('.json'):
+                filepath = os.path.join(TEMPLATES_DIR, filename)
+                try:
+                    with open(filepath, 'r') as f:
+                        template = json.load(f)
+                        templates.append({
+                            "id": template.get("id", filename.replace(".json", "")),
+                            "name": template.get("name", filename),
+                            "description": template.get("description", "")
+                        })
+                except:
+                    pass
+    return {"templates": templates}
+
+
+@app.get("/templates/{template_id}")
+def get_template(template_id: str):
+    """Get a specific system template"""
+    filepath = os.path.join(TEMPLATES_DIR, f"{template_id}.json")
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as f:
+            return json.load(f)
+    raise HTTPException(status_code=404, detail="Template not found")
+
+
 # === Campaign Endpoints ===
+
+@app.get("/campaigns/{campaign_id}/system")
+def get_campaign_system(campaign_id: str):
+    """Get the system configuration for a campaign"""
+    # First check if campaign has a custom system
+    system = load_campaign_json(campaign_id, "system.json")
+    if system:
+        return system
+
+    # Fall back to Bloomburrow default for backwards compatibility
+    return BLOOMBURROW_SYSTEM
+
+
+@app.put("/campaigns/{campaign_id}/system")
+def update_campaign_system(campaign_id: str, system: dict):
+    """Update the system configuration for a campaign"""
+    # Validate the system config
+    try:
+        CampaignSystem(**system)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid system config: {str(e)}")
+
+    save_campaign_json(campaign_id, "system.json", system)
+    return {"success": True}
+
 
 @app.get("/campaigns")
 def get_campaigns():
@@ -210,28 +289,45 @@ def create_campaign(campaign: CampaignCreate):
     campaign_id = re.sub(r'[^a-z0-9]', '_', campaign.name.lower())
     campaign_id = f"{campaign_id}_{uuid.uuid4().hex[:6]}"
 
+    # Load system config from template or use default
+    system_config = None
+    if campaign.template_id:
+        template_path = os.path.join(TEMPLATES_DIR, f"{campaign.template_id}.json")
+        if os.path.exists(template_path):
+            with open(template_path, 'r') as f:
+                template = json.load(f)
+                system_config = template.get("system", BLOOMBURROW_SYSTEM)
+        else:
+            # Fall back to default if template not found
+            system_config = DEFAULT_SYSTEM
+    else:
+        # No template specified, use Bloomburrow as default
+        system_config = BLOOMBURROW_SYSTEM
+
     # Create campaign data directory
     campaign_dir = get_campaign_dir(campaign_id)
     os.makedirs(campaign_dir, exist_ok=True)
     os.makedirs(os.path.join(campaign_dir, "images"), exist_ok=True)
 
+    # Initialize buildings from system config
+    buildings_init = {}
+    for i, building in enumerate(system_config.get("buildings", [])):
+        # First building is free (unlocked by default)
+        buildings_init[building["key"]] = (building.get("cost", 0) == 0)
+
+    # Get currency config
+    currency_config = system_config.get("currency", {"name": "Gold", "symbol": "🪙", "starting": 0})
+
     # Initialize campaign data files
     save_campaign_json(campaign_id, "roster.json", {"characters": []})
     save_campaign_json(campaign_id, "town.json", {
         "name": "",
-        "seeds": 0,
-        "buildings": {
-            "generalStore": True,
-            "blacksmith": False,
-            "weaversHut": False,
-            "inn": False,
-            "shrine": False,
-            "watchtower": False,
-            "garden": False
-        }
+        "currency": currency_config.get("starting", 0),
+        "buildings": buildings_init
     })
     save_campaign_json(campaign_id, "stash.json", {"items": []})
     save_campaign_json(campaign_id, "current_session.json", {"active": False})
+    save_campaign_json(campaign_id, "system.json", system_config)
 
     # Add to campaigns list
     now = datetime.utcnow().isoformat() + "Z"
@@ -242,7 +338,8 @@ def create_campaign(campaign: CampaignCreate):
         "bannerImage": None,
         "currencyName": campaign.currencyName,
         "lastPlayed": None,
-        "createdAt": now
+        "createdAt": now,
+        "isDraft": True  # New campaigns start as drafts
     }
     data["campaigns"].append(new_campaign)
     save_json("campaigns.json", data)
@@ -276,10 +373,6 @@ def delete_campaign(campaign_id: str):
     data = load_json("campaigns.json")
 
     # Find and remove campaign from list
-    found = False
-    data["campaigns"] = [c for c in data.get("campaigns", []) if c["id"] != campaign_id or (found := True) and False]
-
-    # Simpler approach
     original_length = len(data.get("campaigns", []))
     data["campaigns"] = [c for c in data.get("campaigns", []) if c["id"] != campaign_id]
 
@@ -380,6 +473,422 @@ def get_campaign_banner(campaign_id: str):
             return FileResponse(banner_path, media_type=media_types[ext])
 
     raise HTTPException(status_code=404, detail="Banner not found")
+
+# === Campaign Content Endpoints ===
+
+class CampaignContentRequest(BaseModel):
+    """Request body for campaign content"""
+    content: dict
+
+class RunCompleteRequest(BaseModel):
+    """Request body for completing a run"""
+    outcome: str  # "victory", "retreat", "failed"
+    facts_learned: list = []
+    npcs_met: list = []
+    locations_visited: list = []
+
+def load_campaign_content(campaign_id: str):
+    """Load authored campaign content"""
+    data = load_campaign_json(campaign_id, "campaign.json")
+    if not data:
+        return None
+    try:
+        return CampaignContent(**data)
+    except Exception:
+        return None
+
+def load_campaign_state(campaign_id: str) -> CampaignState:
+    """Load runtime campaign state"""
+    data = load_campaign_json(campaign_id, "state.json")
+    if not data:
+        return CampaignState()
+    return CampaignState(**data)
+
+def save_campaign_state(campaign_id: str, state: CampaignState):
+    """Save runtime campaign state"""
+    save_campaign_json(campaign_id, "state.json", state.dict())
+
+def check_trigger(trigger, state: CampaignState) -> bool:
+    """Check if a run trigger condition is met"""
+    if trigger.type == RunTriggerType.START:
+        return True
+    if trigger.type == RunTriggerType.AFTER_RUN:
+        return trigger.value in state.anchor_runs_completed
+    if trigger.type == RunTriggerType.AFTER_RUNS_COUNT:
+        return state.runs_completed >= int(trigger.value)
+    if trigger.type == RunTriggerType.THREAT_STAGE:
+        return state.threat_stage >= int(trigger.value)
+    return False
+
+def get_available_runs(content: CampaignContent, state: CampaignState) -> dict:
+    """Get currently available anchor runs and filler seeds"""
+    available_anchors = []
+    for run in content.anchor_runs:
+        if run.id not in state.anchor_runs_completed:
+            if check_trigger(run.trigger, state):
+                available_anchors.append(run)
+
+    available_fillers = []
+    for i, seed in enumerate(content.filler_seeds):
+        if i not in state.filler_seeds_used:
+            available_fillers.append({"index": i, "seed": seed})
+
+    return {"anchors": available_anchors, "fillers": available_fillers}
+
+def select_next_run(content: CampaignContent, state: CampaignState) -> dict:
+    """Select the next recommended run"""
+    available = get_available_runs(content, state)
+
+    if available["anchors"]:
+        run = available["anchors"][0]
+        return {
+            "type": "anchor",
+            "id": run.id,
+            "hook": run.hook,
+            "goal": run.goal,
+            "tone": run.tone or content.tone,
+            "must_include": run.must_include,
+            "reveal": run.reveal
+        }
+
+    if available["fillers"]:
+        filler = random.choice(available["fillers"])
+        return {
+            "type": "filler",
+            "index": filler["index"],
+            "hook": filler["seed"],
+            "goal": "Complete the task",
+            "tone": content.tone,
+            "must_include": [],
+            "reveal": None
+        }
+
+    return {"type": "none", "message": "No runs available. Campaign may be complete."}
+
+def build_dm_context(content: CampaignContent, state: CampaignState, run_details: dict) -> dict:
+    """Build full context for the DM"""
+    party_knows = list(state.facts_known)
+    party_does_not_know = []
+
+    for npc in content.npcs:
+        npc_key = npc.name.lower().replace(" ", "_")
+        if npc.secret not in party_knows:
+            party_does_not_know.append(f"{npc.name}'s secret: {npc.secret}")
+
+    for run in content.anchor_runs:
+        if run.id not in state.anchor_runs_completed and run.reveal:
+            if run.reveal not in party_knows:
+                party_does_not_know.append(f"Run reveal ({run.id}): {run.reveal}")
+
+    npc_states = {}
+    for npc in content.npcs:
+        npc_key = npc.name.lower().replace(" ", "_")
+        npc_runtime = state.npcs.get(npc_key, NPCState())
+        npc_states[npc.name] = {
+            "species": npc.species.value,
+            "role": npc.role,
+            "wants": npc.wants,
+            "secret": npc.secret,
+            "met": npc_runtime.met,
+            "disposition": npc_runtime.disposition
+        }
+
+    threat_desc = content.threat.stages[state.threat_stage] if state.threat_stage < len(content.threat.stages) else "Maximum threat reached"
+
+    return {
+        "run": run_details,
+        "campaign_context": {
+            "name": content.name,
+            "premise": content.premise,
+            "tone": content.tone,
+            "locations": [{"name": loc.name, "vibe": loc.vibe, "contains": [t.value for t in loc.contains]} for loc in content.locations]
+        },
+        "party_knows": party_knows,
+        "party_does_not_know": party_does_not_know,
+        "npc_states": npc_states,
+        "threat_stage": state.threat_stage,
+        "threat_name": content.threat.name,
+        "threat_description": threat_desc,
+        "runs_completed": state.runs_completed,
+        "locations_visited": state.locations_visited
+    }
+
+@app.post("/campaigns/{campaign_id}/content")
+def create_campaign_content(campaign_id: str, request: CampaignContentRequest):
+    """Create or replace campaign authored content"""
+    result = validate_campaign_content(request.content)
+    if not result.valid:
+        raise HTTPException(status_code=400, detail={"errors": result.errors})
+
+    content = CampaignContent(**request.content)
+    save_campaign_json(campaign_id, "campaign.json", content.dict())
+
+    # Mark campaign as no longer a draft
+    campaigns_data = load_json("campaigns.json")
+    for campaign in campaigns_data.get("campaigns", []):
+        if campaign["id"] == campaign_id:
+            campaign["isDraft"] = False
+            break
+    save_json("campaigns.json", campaigns_data)
+
+    # Initialize state if needed
+    state_data = load_campaign_json(campaign_id, "state.json")
+    if not state_data:
+        state = CampaignState()
+        state.initialize_from_content(content)
+        save_campaign_state(campaign_id, state)
+
+    return {"success": True, "warnings": result.warnings, "campaign_id": campaign_id}
+
+@app.post("/campaigns/{campaign_id}/draft")
+def save_campaign_draft(campaign_id: str, request: CampaignContentRequest):
+    """Save campaign content as draft (no validation)"""
+    # Save raw content without validation
+    save_campaign_json(campaign_id, "draft.json", request.content)
+
+    # Ensure campaign is marked as draft
+    campaigns_data = load_json("campaigns.json")
+    for campaign in campaigns_data.get("campaigns", []):
+        if campaign["id"] == campaign_id:
+            campaign["isDraft"] = True
+            # Update name/description from draft if provided
+            if request.content.get("name"):
+                campaign["name"] = request.content["name"]
+            if request.content.get("premise"):
+                campaign["description"] = request.content["premise"]
+            break
+    save_json("campaigns.json", campaigns_data)
+
+    return {"success": True, "campaign_id": campaign_id, "isDraft": True}
+
+@app.get("/campaigns/{campaign_id}/draft")
+def get_campaign_draft(campaign_id: str):
+    """Get campaign draft content for resuming editing"""
+    draft = load_campaign_json(campaign_id, "draft.json")
+    if draft:
+        return {"hasDraft": True, "content": draft}
+
+    # Fall back to campaign.json if exists
+    content = load_campaign_json(campaign_id, "campaign.json")
+    if content:
+        return {"hasDraft": False, "content": content}
+
+    return {"hasDraft": False, "content": None}
+
+@app.get("/campaigns/{campaign_id}/content")
+def get_campaign_content_endpoint(campaign_id: str):
+    """Get campaign authored content for editing"""
+    content = load_campaign_content(campaign_id)
+    if not content:
+        raise HTTPException(status_code=404, detail="Campaign content not found")
+    return content.dict()
+
+@app.put("/campaigns/{campaign_id}/content")
+def update_campaign_content(campaign_id: str, request: CampaignContentRequest):
+    """Update campaign authored content"""
+    result = validate_campaign_content(request.content)
+    if not result.valid:
+        raise HTTPException(status_code=400, detail={"errors": result.errors})
+
+    content = CampaignContent(**request.content)
+    save_campaign_json(campaign_id, "campaign.json", content.dict())
+
+    # Update state to include any new NPCs
+    state = load_campaign_state(campaign_id)
+    for npc in content.npcs:
+        npc_key = npc.name.lower().replace(" ", "_")
+        if npc_key not in state.npcs:
+            state.npcs[npc_key] = NPCState()
+    save_campaign_state(campaign_id, state)
+
+    return {"success": True, "warnings": result.warnings}
+
+@app.get("/campaigns/{campaign_id}/state")
+def get_campaign_state_endpoint(campaign_id: str):
+    """Get campaign runtime state"""
+    state = load_campaign_state(campaign_id)
+    return state.dict()
+
+@app.post("/campaigns/{campaign_id}/state/reset")
+def reset_campaign_state(campaign_id: str):
+    """Reset campaign runtime state (keep content)"""
+    content = load_campaign_content(campaign_id)
+    if not content:
+        raise HTTPException(status_code=404, detail="Campaign content not found")
+
+    state = CampaignState()
+    state.initialize_from_content(content)
+    save_campaign_state(campaign_id, state)
+    return {"success": True}
+
+@app.get("/campaigns/{campaign_id}/available-runs")
+def get_available_runs_endpoint(campaign_id: str):
+    """Get list of currently available runs"""
+    content = load_campaign_content(campaign_id)
+    if not content:
+        return {"anchors": [], "fillers": [], "hasContent": False}
+
+    state = load_campaign_state(campaign_id)
+    available = get_available_runs(content, state)
+
+    return {
+        "hasContent": True,
+        "anchors": [{"id": r.id, "hook": r.hook, "goal": r.goal} for r in available["anchors"]],
+        "fillers": available["fillers"],
+        "runs_completed": state.runs_completed,
+        "threat_stage": state.threat_stage
+    }
+
+@app.get("/campaigns/{campaign_id}/next-run")
+def get_next_run_endpoint(campaign_id: str):
+    """Get the next recommended run"""
+    content = load_campaign_content(campaign_id)
+    if not content:
+        return {"type": "none", "hasContent": False}
+
+    state = load_campaign_state(campaign_id)
+    return {**select_next_run(content, state), "hasContent": True}
+
+@app.post("/campaigns/{campaign_id}/start-run")
+def start_run(campaign_id: str, run_type: str, run_id: str = None, filler_index: int = None):
+    """Start a run and get DM context"""
+    content = load_campaign_content(campaign_id)
+    if not content:
+        raise HTTPException(status_code=404, detail="Campaign content not found")
+
+    state = load_campaign_state(campaign_id)
+
+    if run_type == "anchor":
+        run = next((r for r in content.anchor_runs if r.id == run_id), None)
+        if not run:
+            raise HTTPException(status_code=404, detail="Anchor run not found")
+        state.current_run_id = run.id
+        state.current_run_type = "anchor"
+        run_details = {
+            "type": "anchor",
+            "id": run.id,
+            "hook": run.hook,
+            "goal": run.goal,
+            "tone": run.tone or content.tone,
+            "must_include": run.must_include,
+            "reveal": run.reveal
+        }
+    else:
+        if filler_index is None or filler_index >= len(content.filler_seeds):
+            raise HTTPException(status_code=400, detail="Invalid filler index")
+        state.current_run_id = f"filler_{filler_index}"
+        state.current_run_type = "filler"
+        run_details = {
+            "type": "filler",
+            "index": filler_index,
+            "hook": content.filler_seeds[filler_index],
+            "goal": "Complete the task",
+            "tone": content.tone,
+            "must_include": [],
+            "reveal": None
+        }
+
+    save_campaign_state(campaign_id, state)
+    return build_dm_context(content, state, run_details)
+
+@app.post("/campaigns/{campaign_id}/complete-run")
+def complete_run(campaign_id: str, request: RunCompleteRequest):
+    """Complete current run and update state"""
+    content = load_campaign_content(campaign_id)
+    if not content:
+        raise HTTPException(status_code=404, detail="Campaign content not found")
+
+    state = load_campaign_state(campaign_id)
+
+    if not state.current_run_id:
+        raise HTTPException(status_code=400, detail="No active run")
+
+    state.runs_completed += 1
+
+    if request.outcome == "victory":
+        if state.current_run_type == "anchor":
+            state.anchor_runs_completed.append(state.current_run_id)
+            run = next((r for r in content.anchor_runs if r.id == state.current_run_id), None)
+            if run and run.reveal:
+                state.facts_known.append(run.reveal)
+        else:
+            filler_index = int(state.current_run_id.split("_")[1])
+            if filler_index not in state.filler_seeds_used:
+                state.filler_seeds_used.append(filler_index)
+
+    elif request.outcome == "failed":
+        if content.threat.advance_on.value == "run_failed":
+            state.threat_stage = min(state.threat_stage + 1, len(content.threat.stages) - 1)
+
+    state.facts_known.extend(request.facts_learned)
+    state.facts_known = list(set(state.facts_known))
+    state.locations_visited.extend(request.locations_visited)
+    state.locations_visited = list(set(state.locations_visited))
+
+    for npc_name in request.npcs_met:
+        npc_key = npc_name.lower().replace(" ", "_")
+        if npc_key in state.npcs:
+            state.npcs[npc_key].met = True
+
+    state.current_run_id = None
+    state.current_run_type = None
+    save_campaign_state(campaign_id, state)
+
+    # Check periodic threat advance
+    if content.threat.advance_on.value == "every_2_runs" and state.runs_completed % 2 == 0:
+        state.threat_stage = min(state.threat_stage + 1, len(content.threat.stages) - 1)
+        save_campaign_state(campaign_id, state)
+    elif content.threat.advance_on.value == "every_3_runs" and state.runs_completed % 3 == 0:
+        state.threat_stage = min(state.threat_stage + 1, len(content.threat.stages) - 1)
+        save_campaign_state(campaign_id, state)
+
+    # Check if campaign is complete
+    all_anchors_done = all(run.id in state.anchor_runs_completed for run in content.anchor_runs)
+    threat_maxed = state.threat_stage >= len(content.threat.stages) - 1
+
+    return {
+        "success": True,
+        "runs_completed": state.runs_completed,
+        "threat_stage": state.threat_stage,
+        "campaign_complete": all_anchors_done or threat_maxed
+    }
+
+@app.get("/campaigns/{campaign_id}/dm-context")
+def get_dm_context_endpoint(campaign_id: str):
+    """Get current DM context for ongoing run"""
+    content = load_campaign_content(campaign_id)
+    if not content:
+        raise HTTPException(status_code=404, detail="Campaign content not found")
+
+    state = load_campaign_state(campaign_id)
+
+    if not state.current_run_id:
+        raise HTTPException(status_code=400, detail="No active run")
+
+    if state.current_run_type == "anchor":
+        run = next((r for r in content.anchor_runs if r.id == state.current_run_id), None)
+        run_details = {
+            "type": "anchor",
+            "id": run.id,
+            "hook": run.hook,
+            "goal": run.goal,
+            "tone": run.tone or content.tone,
+            "must_include": run.must_include,
+            "reveal": run.reveal
+        }
+    else:
+        filler_index = int(state.current_run_id.split("_")[1])
+        run_details = {
+            "type": "filler",
+            "index": filler_index,
+            "hook": content.filler_seeds[filler_index],
+            "goal": "Complete the task",
+            "tone": content.tone,
+            "must_include": [],
+            "reveal": None
+        }
+
+    return build_dm_context(content, state, run_details)
 
 # === Character Endpoints (Campaign-Scoped) ===
 
@@ -689,14 +1198,17 @@ def download_image(url: str, campaign_id: str = None) -> str:
         print(f"Failed to download image: {e}")
         return None
 
-def generate_scene_image(scene_description: str, session: dict, campaign_id: str = None) -> tuple[str, str]:
+def generate_scene_image(scene_description: str, session: dict, campaign_id: str = None, art_style: str = None) -> tuple[str, str]:
     """Generate an image for a scene and return (local_URL, crafted_prompt)"""
 
     # First, craft an optimized prompt
     crafted_prompt = craft_image_prompt(scene_description, session)
 
+    # Use provided art style or fall back to default
+    style = art_style or "fantasy illustration, detailed, atmospheric lighting"
+
     # Add style prefix
-    full_prompt = f"{BLOOMBURROW_STYLE}, {crafted_prompt}"
+    full_prompt = f"{style}, {crafted_prompt}"
 
     try:
         output = replicate.run(
@@ -727,17 +1239,58 @@ def generate_scene_image(scene_description: str, session: dict, campaign_id: str
 def dm_message(campaign_id: str, msg: DMMessage):
     """Send a message to Claude as DM, get response"""
 
-    # Build context
-    system_prompt = load_prompt("dm_system.md")
-    rules = load_prompt("rules_reference.md")
-    lore = load_prompt("bloomburrow_lore.md")
+    # Load campaign system config
+    system_config = load_campaign_json(campaign_id, "system.json")
+    if not system_config:
+        # Fall back to Bloomburrow for backwards compatibility
+        system_config = BLOOMBURROW_SYSTEM
+
+    # Build prompts from system config
+    system_prompt = build_dm_system_prompt(system_config)
+    rules = build_rules_reference(system_config)
+    lore = build_lore_section(system_config)
 
     # Get current session
     session = load_campaign_json(campaign_id, "current_session.json")
 
-    # Get current state if requested
+    # Check for authored campaign content
+    campaign_context_section = ""
+    content = load_campaign_content(campaign_id)
+    if content:
+        state = load_campaign_state(campaign_id)
+        if state.current_run_id:
+            # Build run details
+            if state.current_run_type == "anchor":
+                run = next((r for r in content.anchor_runs if r.id == state.current_run_id), None)
+                if run:
+                    run_details = {
+                        "type": "anchor",
+                        "id": run.id,
+                        "hook": run.hook,
+                        "goal": run.goal,
+                        "tone": run.tone or content.tone,
+                        "must_include": run.must_include,
+                        "reveal": run.reveal
+                    }
+                    dm_context = build_dm_context(content, state, run_details)
+                    campaign_context_section = build_dm_system_injection(dm_context, session)
+            else:
+                filler_index = int(state.current_run_id.split("_")[1])
+                run_details = {
+                    "type": "filler",
+                    "index": filler_index,
+                    "hook": content.filler_seeds[filler_index],
+                    "goal": "Complete the task",
+                    "tone": content.tone,
+                    "must_include": [],
+                    "reveal": None
+                }
+                dm_context = build_dm_context(content, state, run_details)
+                campaign_context_section = build_dm_system_injection(dm_context, session)
+
+    # Get current state if requested (for freestyle campaigns or fallback)
     state_context = ""
-    if msg.includeState and session.get("active"):
+    if msg.includeState and session.get("active") and not campaign_context_section:
         state_context = f"""
 ## Current Session State
 - Run State: {session.get('runState', 'unknown')}
@@ -763,6 +1316,8 @@ def dm_message(campaign_id: str, msg: DMMessage):
 
     # Combine into full system prompt
     full_system = f"""{system_prompt}
+
+{campaign_context_section}
 
 {state_context}
 
@@ -801,11 +1356,14 @@ def dm_message(campaign_id: str, msg: DMMessage):
         dm_response = response.content[0].text
         image_url = None
 
+        # Get art style from system config
+        art_style = system_config.get("art_style", "fantasy illustration, detailed, atmospheric lighting")
+
         # Check for [SCENE: ...] tag and generate image
         scene_match = re.search(r'\[SCENE:\s*(.+?)\]', dm_response, re.IGNORECASE | re.DOTALL)
         if scene_match:
             scene_description = scene_match.group(1).strip()
-            image_url, crafted_prompt = generate_scene_image(scene_description, session, campaign_id)
+            image_url, crafted_prompt = generate_scene_image(scene_description, session, campaign_id, art_style)
 
             # Store image in session
             if image_url and session.get("active"):
@@ -823,7 +1381,7 @@ def dm_message(campaign_id: str, msg: DMMessage):
             if msg.requestIllustration and session.get("active"):
                 # Use first paragraph as scene description
                 first_para = dm_response.split('\n\n')[0][:500]
-                image_url, crafted_prompt = generate_scene_image(first_para, session, campaign_id)
+                image_url, crafted_prompt = generate_scene_image(first_para, session, campaign_id, art_style)
                 if image_url:
                     session.setdefault("images", []).append({
                         "url": image_url,
@@ -871,23 +1429,26 @@ def dm_message(campaign_id: str, msg: DMMessage):
 
 # === Image Generation (Campaign-Scoped) ===
 
-BLOOMBURROW_STYLE = """rich detailed fantasy illustration, warm earthy tones, atmospheric lighting,
-woodland fantasy with anthropomorphic animals, Brian Froud meets Arthur Rackham style,
-textured painterly quality, deep shadows and golden highlights, cozy but grounded atmosphere"""
+# Default style for backwards compatibility
+DEFAULT_ART_STYLE = "fantasy illustration, detailed, atmospheric lighting"
 
 @app.post("/campaigns/{campaign_id}/image/generate")
 def generate_image(campaign_id: str, request: ImageRequest):
     """Generate an image using Replicate Flux"""
 
+    # Load campaign system config for art style
+    system_config = load_campaign_json(campaign_id, "system.json")
+    art_style = system_config.get("art_style", DEFAULT_ART_STYLE) if system_config else DEFAULT_ART_STYLE
+
     # Build the full prompt with style
     if request.style == "scene":
-        full_prompt = f"{BLOOMBURROW_STYLE}, scenic landscape view, {request.prompt}"
+        full_prompt = f"{art_style}, scenic landscape view, {request.prompt}"
     elif request.style == "character":
-        full_prompt = f"{BLOOMBURROW_STYLE}, character portrait, {request.prompt}"
+        full_prompt = f"{art_style}, character portrait, {request.prompt}"
     elif request.style == "enemy":
-        full_prompt = f"{BLOOMBURROW_STYLE}, creature design, slightly menacing but not scary, {request.prompt}"
+        full_prompt = f"{art_style}, creature design, slightly menacing but not scary, {request.prompt}"
     else:
-        full_prompt = f"{BLOOMBURROW_STYLE}, {request.prompt}"
+        full_prompt = f"{art_style}, {request.prompt}"
 
     try:
         output = replicate.run(

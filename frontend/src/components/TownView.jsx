@@ -2,17 +2,26 @@ import React, { useState } from 'react'
 
 const API_BASE = '/api'
 
-const BUILDINGS = [
-  { key: 'generalStore', name: 'General Store', cost: 0, desc: 'Basic items, healing berries' },
+// Default values for backwards compatibility
+const DEFAULT_BUILDINGS = [
+  { key: 'generalStore', name: 'General Store', cost: 0, desc: 'Basic items, supplies' },
   { key: 'blacksmith', name: 'Blacksmith', cost: 20, desc: 'Weapons, armor, repairs' },
-  { key: 'weaversHut', name: "Weaver's Hut", cost: 20, desc: 'New weaves, Thread potions' },
   { key: 'inn', name: 'Inn', cost: 15, desc: 'Rumors, recruit companions' },
-  { key: 'shrine', name: 'Shrine', cost: 30, desc: 'Respec stats, change traits' },
-  { key: 'watchtower', name: 'Watchtower', cost: 25, desc: 'See next run danger level' },
-  { key: 'garden', name: 'Garden', cost: 15, desc: 'Grow healing items' },
+  { key: 'temple', name: 'Temple', cost: 30, desc: 'Healing and blessings' },
 ]
 
-function TownView({ town, onUpdate, campaignId }) {
+const DEFAULT_CURRENCY = {
+  name: 'Gold',
+  symbol: '🪙'
+}
+
+function TownView({ town, onUpdate, campaignId, systemConfig }) {
+  // Extract config or use defaults
+  const buildings = systemConfig?.buildings || DEFAULT_BUILDINGS
+  const currencyConfig = systemConfig?.currency || DEFAULT_CURRENCY
+  const currencyName = currencyConfig.name || 'Gold'
+  const currencySymbol = currencyConfig.symbol || '🪙'
+
   const [editingName, setEditingName] = useState(false)
   const [townName, setTownName] = useState(town?.name || '')
 
@@ -31,13 +40,13 @@ function TownView({ town, onUpdate, campaignId }) {
   }
 
   const toggleBuilding = async (key) => {
-    const building = BUILDINGS.find(b => b.key === key)
+    const building = buildings.find(b => b.key === key)
     const isBuilt = town?.buildings?.[key]
-    
+
     if (isBuilt) return // Can't un-build
-    
+
     if (town.seeds < building.cost) {
-      alert(`Not enough seeds! Need ${building.cost}, have ${town.seeds}`)
+      alert(`Not enough ${currencyName.toLowerCase()}! Need ${building.cost}, have ${town.seeds}`)
       return
     }
 
@@ -45,7 +54,7 @@ function TownView({ town, onUpdate, campaignId }) {
       await fetch(`${API_BASE}/campaigns/${campaignId}/town`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           seeds: town.seeds - building.cost,
           buildings: { [key]: true }
         })
@@ -56,7 +65,7 @@ function TownView({ town, onUpdate, campaignId }) {
     }
   }
 
-  const addSeeds = async (amount) => {
+  const addCurrency = async (amount) => {
     try {
       await fetch(`${API_BASE}/campaigns/${campaignId}/town`, {
         method: 'PUT',
@@ -65,7 +74,7 @@ function TownView({ town, onUpdate, campaignId }) {
       })
       onUpdate()
     } catch (err) {
-      console.error('Failed to add seeds:', err)
+      console.error('Failed to add currency:', err)
     }
   }
 
@@ -91,7 +100,7 @@ function TownView({ town, onUpdate, campaignId }) {
                 <button className="btn btn-primary" onClick={saveTownName}>Save</button>
               </div>
             ) : (
-              <div 
+              <div
                 onClick={() => setEditingName(true)}
                 style={{ cursor: 'pointer', fontWeight: 600, fontSize: '1.2rem' }}
               >
@@ -106,40 +115,40 @@ function TownView({ town, onUpdate, campaignId }) {
           <div className="card-header golden">Treasury</div>
           <div className="card-body">
             <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--golden)' }}>
-              🌰 {town.seeds} Seeds
+              {currencySymbol} {town.seeds} {currencyName}
             </div>
             <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button
                 className="btn btn-secondary"
-                onClick={() => addSeeds(-1)}
+                onClick={() => addCurrency(-1)}
                 style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
               >
                 -1
               </button>
               <button
                 className="btn btn-secondary"
-                onClick={() => addSeeds(1)}
+                onClick={() => addCurrency(1)}
                 style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
               >
                 +1
               </button>
               <button
                 className="btn btn-secondary"
-                onClick={() => addSeeds(5)}
+                onClick={() => addCurrency(5)}
                 style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
               >
                 +5
               </button>
               <button
                 className="btn btn-secondary"
-                onClick={() => addSeeds(10)}
+                onClick={() => addCurrency(10)}
                 style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
               >
                 +10
               </button>
               <button
                 className="btn btn-secondary"
-                onClick={() => addSeeds(20)}
+                onClick={() => addCurrency(20)}
                 style={{ flex: 'none', padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
               >
                 +20
@@ -153,13 +162,13 @@ function TownView({ town, onUpdate, campaignId }) {
           <div className="card-header brown">Buildings</div>
           <div className="card-body">
             <div className="building-list">
-              {BUILDINGS.map(building => {
+              {buildings.map(building => {
                 const isBuilt = town.buildings?.[building.key]
                 const canAfford = town.seeds >= building.cost
-                
+
                 return (
-                  <div 
-                    key={building.key} 
+                  <div
+                    key={building.key}
                     className={`building-item ${!isBuilt && !canAfford ? 'locked' : ''}`}
                     onClick={() => !isBuilt && toggleBuilding(building.key)}
                     style={{ cursor: isBuilt ? 'default' : 'pointer' }}
@@ -175,7 +184,7 @@ function TownView({ town, onUpdate, campaignId }) {
                     </div>
                     {!isBuilt && (
                       <div className="cost">
-                        {building.cost > 0 ? `${building.cost} 🌰` : 'FREE'}
+                        {building.cost > 0 ? `${building.cost} ${currencySymbol}` : 'FREE'}
                       </div>
                     )}
                   </div>
@@ -190,7 +199,7 @@ function TownView({ town, onUpdate, campaignId }) {
       <div>
         <div className="card" style={{ height: '100%' }}>
           <div className="card-header">Town Map</div>
-          <div className="card-body" style={{ 
+          <div className="card-body" style={{
             minHeight: '400px',
             display: 'flex',
             alignItems: 'center',

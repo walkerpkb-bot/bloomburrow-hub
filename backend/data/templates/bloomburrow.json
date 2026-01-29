@@ -1,0 +1,76 @@
+{
+  "id": "bloomburrow",
+  "name": "Bloomburrow Adventures",
+  "description": "Cozy woodland fantasy with anthropomorphic animals. Perfect for family play.",
+  "system": {
+    "game_name": "Bloomburrow Adventures",
+    "player_context": "a parent and their 7-year-old child",
+    "species": [
+      {"name": "Mousefolk", "trait_name": "Quick Paws", "trait_desc": "Once per run, take two actions in one turn"},
+      {"name": "Rabbitfolk", "trait_name": "Warm Hearth", "trait_desc": "When you heal someone, they heal +1 extra Heart"},
+      {"name": "Birdfolk", "trait_name": "Take Wing", "trait_desc": "Fly short distances"},
+      {"name": "Batfolk", "trait_name": "Night Sight", "trait_desc": "See in darkness, sense hidden creatures"},
+      {"name": "Frogfolk", "trait_name": "Read the Signs", "trait_desc": "Once per run, ask one yes/no question about what's ahead"},
+      {"name": "Ratfolk", "trait_name": "Insect Companion", "trait_desc": "Your bug can scout, distract, or fetch small items"},
+      {"name": "Otterfolk", "trait_name": "Slippery", "trait_desc": "Advantage on dodge and escape rolls"},
+      {"name": "Lizardfolk", "trait_name": "Cold Blood, Hot Fury", "trait_desc": "After taking damage, your next attack deals +1d4"},
+      {"name": "Squirrelfolk", "trait_name": "Bone Whisper", "trait_desc": "Once per run, ask a corpse one question"},
+      {"name": "Raccoonfolk", "trait_name": "Junk Magic", "trait_desc": "Once per run, produce any mundane item from your bag"}
+    ],
+    "stats": {
+      "names": ["Brave", "Clever", "Kind"],
+      "colors": ["#c75050", "#5090c7", "#50c770"],
+      "starting_pool": 5,
+      "min_per_stat": 1,
+      "max_per_stat": 3
+    },
+    "resources": {
+      "health": {"name": "Hearts", "symbol": "♥", "starting": 5, "max": 7},
+      "magic": {"name": "Threads", "symbol": "✦", "starting": 3, "max": 5}
+    },
+    "currency": {"name": "Seeds", "symbol": "🌰", "starting": 0},
+    "buildings": [
+      {"key": "generalStore", "name": "General Store", "cost": 0, "desc": "Basic items, healing berries"},
+      {"key": "blacksmith", "name": "Blacksmith", "cost": 20, "desc": "Weapons, armor, repairs"},
+      {"key": "weaversHut", "name": "Weaver's Hut", "cost": 20, "desc": "New weaves, Thread potions"},
+      {"key": "inn", "name": "Inn", "cost": 15, "desc": "Rumors, recruit companions"},
+      {"key": "shrine", "name": "Shrine", "cost": 30, "desc": "Respec stats, change traits"},
+      {"key": "watchtower", "name": "Watchtower", "cost": 25, "desc": "See next run danger level"},
+      {"key": "garden", "name": "Garden", "cost": 15, "desc": "Grow healing items"}
+    ],
+    "leveling": {
+      "max_level": 5,
+      "thresholds": [2, 4, 7, 11],
+      "rewards": {
+        "2": {"type": "stat", "desc": "+1 to one stat (max 4)"},
+        "3": {"type": "health", "desc": "+1 Heart (now 6 total)"},
+        "4": {"type": "choice", "desc": "New species ability OR +1 Thread"},
+        "5": {"type": "stat", "desc": "+1 to one stat (max 5)"}
+      }
+    },
+    "mechanics": {
+      "dice": "d20",
+      "success_threshold": 15,
+      "partial_threshold": 10,
+      "enemy_tiers": {
+        "minion": {"health": 1, "damage": "d4"},
+        "standard": {"health": 3, "damage": "d6"},
+        "elite": {"health": 5, "damage": "d8"},
+        "boss": {"health": 8, "damage": "d10"}
+      }
+    },
+    "location_tags": [
+      {"value": "exposition", "label": "Exposition"},
+      {"value": "ally", "label": "Ally"},
+      {"value": "boss", "label": "Boss"},
+      {"value": "treasure", "label": "Treasure"},
+      {"value": "danger", "label": "Danger"},
+      {"value": "secret", "label": "Secret"},
+      {"value": "rest", "label": "Rest"}
+    ],
+    "art_style": "rich detailed fantasy illustration, warm earthy tones, atmospheric lighting, woodland fantasy with anthropomorphic animals, Brian Froud meets Arthur Rackham style, textured painterly quality, deep shadows and golden highlights, cozy but grounded atmosphere",
+    "lore": "The Valley is a vast wilderness where tiny animalfolk have built their civilizations among the roots and branches. Grass blades tower like forests, streams become rivers, and common boulders are mountains.\n\nTen species share the Valley: brave Mousefolk heroes, hospitable Rabbitfolk farmers, chivalrous Birdfolk knights, nocturnal Batfolk scholars, prophetic Frogfolk seers, secretive Ratfolk with their insect companions, playful Otterfolk storm-chasers, grumpy fire-worshipping Lizardfolk, death-positive Squirrelfolk, and wandering Raccoonfolk collectors.\n\nMagic in the Valley is called Weaving—drawing power from the land itself. Anyone can learn it, though the most powerful forms have been sealed away since the old wars.\n\nThe Valley faces Calamity Beasts: ancient, massive creatures that transform the environment around them. Maha brings darkness, Eluge brings floods, Beza brings storms, Ygra causes earthquakes, Lumra creates blinding light, and Wildsear brings consuming flame.\n\nKey settlements include Three Tree City (the capital, built in three ancient oaks), Fountainport (the trading hub by the great stream), and the Brambles (wild, dangerous, but full of secrets).",
+    "dm_tone": "You are the DM for Bloomburrow Adventures, a tabletop roguelike played by a parent and their 7-year-old child.\n\nKeep the tone warm, storybook-like, and cozy but grounded. Never scary—thrilling is okay. Descriptions should be vivid but not gruesome. Combat should feel exciting, not violent.\n\nCelebrate player creativity. If they try something clever, let it work (maybe with a roll). Default to \"yes, and\" whenever possible.\n\nKeep responses to 2-4 paragraphs typically. Always end with a clear prompt for player action.",
+    "rules_addendum": ""
+  }
+}

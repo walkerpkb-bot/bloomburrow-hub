@@ -1,16 +1,18 @@
 # Bloomburrow Hub
 
-A web-based companion app for playing Bloomburrow Adventures - a tabletop roguelike RPG for parent and child.
+A web-based companion app for playing tabletop roguelike RPGs. Originally built for Bloomburrow Adventures, now supports fully customizable campaign systems for any setting.
 
 ## Features
 
 - **Campaign System**: Support for multiple campaigns with full data isolation
-- **Character Roster**: Create and manage characters across all 10 Bloomburrow species
-- **Town Management**: Track seeds, build upgrades, manage shared stash
+- **Customizable Game Systems**: Configure species, stats, resources, currency, buildings, leveling, and mechanics per campaign
+- **Templates**: Start from pre-built templates (Bloomburrow, Generic Fantasy) or build from scratch
+- **Character Roster**: Create and manage characters with campaign-specific species and stats
+- **Town Management**: Track currency, build upgrades, manage shared stash
 - **Session Runner**: AI-powered Dungeon Master using Claude API
 - **AI Scene Illustrations**: Generate atmospheric scene images during play
 - **Dice Roller**: Digital dice with automatic threshold checking
-- **Party Tracker**: Real-time HP and Thread management during runs
+- **Party Tracker**: Real-time HP and resource management during runs
 
 ## Setup
 
@@ -38,7 +40,7 @@ cp .env.example .env
 # Edit .env and add your API keys
 
 # Run the server
-python main.py
+uvicorn main:app --reload --port 8000
 ```
 
 The backend runs on `http://localhost:8000`
@@ -73,23 +75,29 @@ This migrates your roster, town, stash, and session data into a "Bloomburrow" ca
 ```
 bloomburrow-hub/
 ├── backend/
-│   ├── main.py              # FastAPI server
-│   ├── migrate_to_campaigns.py  # Data migration script
+│   ├── main.py                 # FastAPI server
+│   ├── campaign_schema.py      # Pydantic models for campaign system
+│   ├── dm_context_builder.py   # Builds DM prompts from campaign config
+│   ├── migrate_to_campaigns.py # Data migration script
 │   ├── requirements.txt
 │   ├── data/
-│   │   ├── campaigns.json   # Campaign metadata
-│   │   └── campaigns/       # Per-campaign data
+│   │   ├── campaigns.json      # Campaign metadata
+│   │   ├── templates/          # Pre-built system templates
+│   │   │   ├── bloomburrow.json
+│   │   │   └── default.json
+│   │   └── campaigns/          # Per-campaign data
 │   │       └── {campaign_id}/
 │   │           ├── roster.json
 │   │           ├── town.json
 │   │           ├── stash.json
+│   │           ├── system.json     # Campaign system config
+│   │           ├── content.json    # Campaign content (NPCs, locations, etc.)
 │   │           ├── current_session.json
 │   │           ├── banner.jpg (optional)
 │   │           └── images/
-│   └── prompts/             # AI prompt templates
+│   └── prompts/                # Base AI prompt templates
 │       ├── dm_system.md
-│       ├── rules_reference.md
-│       └── bloomburrow_lore.md
+│       └── rules_reference.md
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx
@@ -97,6 +105,7 @@ bloomburrow-hub/
 │   │   └── components/
 │   │       ├── CampaignSelector.jsx
 │   │       ├── CampaignCard.jsx
+│   │       ├── CampaignForm.jsx    # Full campaign/system editor
 │   │       ├── SettingsModal.jsx
 │   │       ├── InCampaignHeader.jsx
 │   │       ├── ChatWindow.jsx
@@ -110,6 +119,40 @@ bloomburrow-hub/
 └── README.md
 ```
 
+## Campaign System Configuration
+
+Each campaign can have a fully customized game system:
+
+### System Config (`system.json`)
+
+| Section | What it configures |
+|---------|-------------------|
+| `game_name` | Display name for the game system |
+| `player_context` | Who's playing (e.g., "parent and child") - used in DM prompts |
+| `species` | Playable species/races with trait names and descriptions |
+| `stats` | Stat names, colors, point allocation rules |
+| `resources` | Health and magic names, symbols, starting/max values |
+| `currency` | Currency name, symbol, starting amount |
+| `buildings` | Town buildings with costs and descriptions |
+| `leveling` | Max level, XP thresholds, level-up rewards |
+| `mechanics` | Dice type, success/partial thresholds, enemy tiers |
+| `art_style` | Image generation style prompt |
+| `lore` | World lore injected into DM context |
+| `dm_tone` | DM personality and tone guidance |
+
+### Content Config (`content.json`)
+
+| Section | What it contains |
+|---------|-----------------|
+| `name` | Campaign name |
+| `premise` | Campaign premise/hook |
+| `tone` | Overall tone guidance |
+| `threat` | Escalating threat with stages |
+| `npcs` | Named NPCs with roles, wants, and secrets |
+| `locations` | Key locations with vibes and contents |
+| `anchor_runs` | Scripted story runs with triggers |
+| `filler_seeds` | Random run ideas for variety |
+
 ## API Endpoints
 
 ### Campaign Endpoints
@@ -122,11 +165,19 @@ bloomburrow-hub/
 | `/campaigns/{id}` | PUT | Update campaign metadata |
 | `/campaigns/{id}` | DELETE | Delete campaign and data |
 | `/campaigns/{id}/select` | PUT | Set active campaign |
-| `/campaigns/{id}/banner` | GET/POST | Get or upload campaign banner image |
+| `/campaigns/{id}/banner` | GET/POST | Get or upload campaign banner |
+| `/campaigns/{id}/system` | GET/PUT | Get or update system config |
+| `/campaigns/{id}/content` | GET/POST | Get or save campaign content |
+| `/campaigns/{id}/draft` | GET/POST | Get or save draft content |
 
-### Campaign-Scoped Endpoints
+### Template Endpoints
 
-All game data endpoints are scoped by campaign:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/templates` | GET | List available system templates |
+| `/templates/{name}` | GET | Get specific template |
+
+### Campaign-Scoped Game Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -145,32 +196,46 @@ All game data endpoints are scoped by campaign:
 ## How to Play
 
 1. **Select Campaign**: Choose or create a campaign from the landing page
-2. **Create Characters**: Go to the Roster tab and create 1-2 characters
-3. **Start a Run**: Select characters and click "Start Run", enter quest and location
-4. **Adventure**: Chat with the AI DM in the Adventure tab
-5. **Roll Dice**: Use physical dice and input results, or use the digital roller
-6. **Track Status**: Click hearts/threads to update as you take damage or cast spells
-7. **Generate Scenes**: Toggle illustration mode for AI-generated scene art
-8. **End Run**: Victory, retreat, or fail - XP and loot are awarded accordingly
-9. **Build Town**: Spend seeds in the Town tab to unlock new services
+2. **Configure System** (optional): Use Full Setup to customize species, stats, buildings, etc.
+3. **Create Characters**: Go to the Roster tab and create 1-2 characters
+4. **Start a Run**: Select characters and click "Start Run", enter quest and location
+5. **Adventure**: Chat with the AI DM in the Adventure tab
+6. **Roll Dice**: Use physical dice and input results, or use the digital roller
+7. **Track Status**: Click hearts/resources to update as you take damage or use abilities
+8. **Generate Scenes**: Toggle illustration mode for AI-generated scene art
+9. **End Run**: Victory, retreat, or fail - XP and loot are awarded accordingly
+10. **Build Town**: Spend currency in the Town tab to unlock new services
 
-## Customization
+## Creating Custom Campaigns
 
-### Campaign Banner Art
+### Quick Create
+Just enter a name - uses default fantasy settings. Good for improvised sessions.
 
-Upload custom banner images for campaigns via Settings (gear icon) > Edit > Add Campaign Art.
+### Full Setup
+Use the campaign form to configure everything:
 
-### Adding Enemies
+1. **System Tab**: Configure game mechanics
+   - General: Game name, player context
+   - Species: Define playable species with unique traits
+   - Stats: Name your stats, set point allocation rules
+   - Resources: Configure health/magic systems
+   - Buildings: Define town buildings and costs
+   - Leveling: Set XP thresholds and rewards
+   - Mechanics: Dice, thresholds, enemy tiers
+   - Content: Art style, lore, DM tone
 
-Edit `backend/prompts/rules_reference.md` to add new enemy types.
+2. **Content Tab**: Author campaign content
+   - Overview: Name, premise, tone
+   - Threat: Escalating danger with stages
+   - NPCs: Characters with secrets
+   - Locations: Places to explore
+   - Runs: Scripted and filler adventures
 
-### Modifying the DM
+### Using Templates
 
-Edit `backend/prompts/dm_system.md` to change how the AI DM behaves.
-
-### Adding Lore
-
-Edit `backend/prompts/bloomburrow_lore.md` to expand world details.
+Start from a template and customize:
+- **Bloomburrow Adventures**: Cozy woodland fantasy with anthropomorphic animals
+- **Generic Fantasy**: Classic D&D-style with humans, elves, dwarves
 
 ## Themes
 

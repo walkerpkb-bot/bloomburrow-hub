@@ -999,6 +999,7 @@ body {
   width: 100%;
   height: 280px;
   background: linear-gradient(135deg, var(--twilight-purple) 0%, var(--twilight-plum) 50%, var(--amber-warm) 100%);
+  position: relative;
 }
 
 .campaign-card-body {
@@ -1049,6 +1050,46 @@ body {
 .campaign-card-last-played {
   font-style: italic;
   opacity: 0.7;
+}
+
+/* Draft Campaign Indicators */
+.campaign-card.is-draft {
+  border: 2px dashed var(--slate-gold);
+  opacity: 0.85;
+}
+
+.campaign-card.is-draft:hover {
+  opacity: 1;
+  border-color: var(--slate-ivory);
+}
+
+.campaign-card-draft-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(90deg, var(--slate-gold) 0%, var(--slate-bronze) 100%);
+  color: var(--slate-charcoal);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.35rem 0.75rem;
+  text-align: center;
+}
+
+.draft-badge {
+  display: inline-block;
+  background: var(--slate-gold);
+  color: var(--slate-charcoal);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  margin-left: 0.5rem;
+  vertical-align: middle;
 }
 
 /* === In-Campaign Header (Twilight Forest) === */
@@ -1309,5 +1350,485 @@ body {
   margin-top: 0.75rem;
   font-size: 0.85rem;
   color: var(--slate-muted);
+  font-style: italic;
+}
+
+/* === Campaign Form Styles === */
+
+.campaign-form {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.campaign-form .form-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.campaign-form .form-header h2 {
+  margin-bottom: 0.5rem;
+  color: var(--slate-gold);
+}
+
+.campaign-form .form-subtitle {
+  color: var(--slate-muted);
+  font-size: 0.95rem;
+}
+
+.campaign-form .section-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--slate-light);
+  padding-bottom: 0;
+  flex-wrap: wrap;
+}
+
+.campaign-form .section-tab {
+  background: transparent;
+  border: none;
+  padding: 0.75rem 1rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--slate-muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.campaign-form .section-tab:hover {
+  color: var(--slate-text);
+}
+
+.campaign-form .section-tab.active {
+  color: var(--slate-gold);
+  border-bottom-color: var(--slate-gold);
+}
+
+.campaign-form .form-errors {
+  background: rgba(192, 64, 64, 0.15);
+  border: 1px solid var(--berry-red);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.campaign-form .form-errors strong {
+  color: var(--berry-red);
+}
+
+.campaign-form .form-errors ul {
+  margin: 0.5rem 0 0 1.25rem;
+  color: var(--slate-muted);
+}
+
+.campaign-form .form-errors li {
+  margin-bottom: 0.25rem;
+}
+
+.campaign-form .form-section {
+  animation: fadeIn 0.2s ease;
+}
+
+.campaign-form .section-intro {
+  color: var(--slate-muted);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.campaign-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.campaign-form .form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--slate-text);
+}
+
+.campaign-form .form-group label .hint {
+  font-weight: 400;
+  color: var(--slate-muted);
+  font-size: 0.85rem;
+}
+
+.campaign-form .form-group input,
+.campaign-form .form-group select,
+.campaign-form .form-group textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 2px solid var(--slate-light);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  background: var(--slate-mid);
+  color: var(--slate-text);
+  transition: border-color 0.2s;
+}
+
+.campaign-form .form-group input:focus,
+.campaign-form .form-group select:focus,
+.campaign-form .form-group textarea:focus {
+  outline: none;
+  border-color: var(--slate-gold);
+}
+
+.campaign-form .form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.campaign-form .char-count {
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--slate-muted);
+  margin-top: 0.25rem;
+}
+
+.campaign-form .form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.campaign-form .form-group.half {
+  flex: 1;
+}
+
+/* Sub-form cards (NPCs, Locations, Runs) */
+.campaign-form .sub-form-card {
+  background: var(--slate-mid);
+  border: 1px solid var(--slate-light);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.campaign-form .sub-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--slate-light);
+}
+
+.campaign-form .sub-form-header span {
+  font-weight: 700;
+  color: var(--slate-gold);
+}
+
+/* Array items (threat stages, filler seeds, must_include) */
+.campaign-form .array-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.campaign-form .array-item input {
+  flex: 1;
+}
+
+.campaign-form .array-index {
+  font-weight: 600;
+  color: var(--slate-gold);
+  min-width: 24px;
+}
+
+/* Tag buttons (location contains) */
+.campaign-form .tag-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.campaign-form .tag-btn {
+  padding: 0.4rem 0.75rem;
+  border: 2px solid var(--slate-light);
+  border-radius: 20px;
+  background: var(--slate-mid);
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--slate-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.campaign-form .tag-btn:hover {
+  border-color: var(--slate-gold);
+  color: var(--slate-text);
+}
+
+.campaign-form .tag-btn.active {
+  background: var(--slate-gold);
+  border-color: var(--slate-gold);
+  color: var(--slate-dark);
+}
+
+/* Add/Remove buttons */
+.campaign-form .add-btn {
+  background: transparent;
+  border: 2px dashed var(--slate-gold);
+  color: var(--slate-gold);
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 0.5rem;
+}
+
+.campaign-form .add-btn:hover {
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.campaign-form .add-btn.small {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.campaign-form .remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--berry-red);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.campaign-form .remove-btn:hover {
+  opacity: 1;
+}
+
+.campaign-form .sub-form-header .remove-btn {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--berry-red);
+  border-radius: 4px;
+}
+
+/* Form actions */
+.campaign-form .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--slate-light);
+}
+
+.campaign-form .btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.campaign-form .btn-primary {
+  background: var(--slate-gold);
+  color: var(--slate-dark);
+}
+
+.campaign-form .btn-primary:hover {
+  background: var(--slate-gold-bright);
+}
+
+.campaign-form .btn-secondary {
+  background: var(--slate-light);
+  color: var(--slate-text);
+  border: 1px solid transparent;
+}
+
+.campaign-form .btn-secondary:hover {
+  background: var(--slate-mid);
+  border: 1px solid var(--slate-light);
+}
+
+.campaign-form .btn-outline {
+  background: transparent;
+  border: 2px solid var(--slate-gold);
+  color: var(--slate-gold);
+}
+
+.campaign-form .btn-outline:hover {
+  background: rgba(212, 175, 55, 0.1);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .campaign-form .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .campaign-form .form-group.half {
+    flex: none;
+  }
+
+  .campaign-form .section-tab {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+    font-size: 0.85rem;
+    padding: 0.5rem;
+  }
+}
+
+/* Campaign form modal - full screen */
+.campaign-form-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--slate-dark);
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 2rem;
+}
+
+/* Add campaign menu */
+.add-menu {
+  text-align: center;
+}
+
+.add-menu-label {
+  color: var(--slate-text);
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.add-menu-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.add-menu-buttons .btn-secondary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: var(--slate-mid);
+  border: 2px solid var(--slate-light);
+  border-radius: 8px;
+  color: var(--slate-text);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.add-menu-buttons .btn-secondary:hover {
+  border-color: var(--slate-gold);
+  background: var(--slate-light);
+}
+
+.add-menu-buttons .btn-hint {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--slate-muted);
+  margin-top: 0.25rem;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--slate-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  color: var(--slate-text);
+}
+
+/* Quick create */
+.quick-create {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.quick-create input {
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--slate-light);
+  border-radius: 8px;
+  background: var(--slate-mid);
+  color: var(--slate-text);
+  font-size: 1rem;
+}
+
+.quick-create input:focus {
+  outline: none;
+  border-color: var(--slate-gold);
+}
+
+.quick-create-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+/* Run selection in start modal */
+.run-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.run-option {
+  padding: 0.75rem 1rem;
+  background: var(--twilight-purple);
+  border: 2px solid var(--twilight-lavender);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.run-option:hover {
+  border-color: var(--amber-glow);
+  background: var(--twilight-plum);
+}
+
+.run-option.selected {
+  border-color: var(--amber-glow);
+  background: var(--twilight-plum);
+  box-shadow: 0 0 8px rgba(232, 168, 56, 0.3);
+}
+
+.run-option.filler {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.run-option.filler:hover,
+.run-option.filler.selected {
+  opacity: 1;
+}
+
+.run-option-title {
+  font-weight: 600;
+  color: var(--twilight-cream);
+  margin-bottom: 0.25rem;
+}
+
+.run-option-goal {
+  font-size: 0.85rem;
+  color: var(--twilight-soft);
   font-style: italic;
 }

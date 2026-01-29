@@ -1,0 +1,71 @@
+{
+  "id": "default",
+  "name": "Generic Fantasy",
+  "description": "Classic fantasy adventure with humans, elves, and dwarves. A flexible starting point.",
+  "system": {
+    "game_name": "Adventure",
+    "player_context": "players",
+    "species": [
+      {"name": "Human", "trait_name": "Adaptable", "trait_desc": "Once per run, reroll any failed check"},
+      {"name": "Elf", "trait_name": "Keen Senses", "trait_desc": "Automatically detect hidden doors and traps nearby"},
+      {"name": "Dwarf", "trait_name": "Sturdy", "trait_desc": "Take 1 less damage from all sources (minimum 1)"}
+    ],
+    "stats": {
+      "names": ["Strength", "Dexterity", "Wisdom"],
+      "colors": ["#c75050", "#50c770", "#5090c7"],
+      "starting_pool": 6,
+      "min_per_stat": 1,
+      "max_per_stat": 4
+    },
+    "resources": {
+      "health": {"name": "Health", "symbol": "♥", "starting": 10, "max": 20},
+      "magic": {"name": "Mana", "symbol": "✦", "starting": 5, "max": 10}
+    },
+    "currency": {"name": "Gold", "symbol": "🪙", "starting": 0},
+    "buildings": [
+      {"key": "shop", "name": "General Shop", "cost": 0, "desc": "Basic supplies and gear"},
+      {"key": "smithy", "name": "Smithy", "cost": 50, "desc": "Weapons and armor"},
+      {"key": "temple", "name": "Temple", "cost": 40, "desc": "Healing and blessings"},
+      {"key": "tavern", "name": "Tavern", "cost": 30, "desc": "Rumors and recruits"}
+    ],
+    "leveling": {
+      "max_level": 10,
+      "thresholds": [10, 25, 50, 100, 175, 275, 400, 550, 750],
+      "rewards": {
+        "2": {"type": "stat", "desc": "+1 to one stat"},
+        "3": {"type": "health", "desc": "+2 Health"},
+        "4": {"type": "ability", "desc": "Learn a new ability"},
+        "5": {"type": "stat", "desc": "+1 to one stat"},
+        "6": {"type": "magic", "desc": "+2 Mana"},
+        "7": {"type": "ability", "desc": "Learn a new ability"},
+        "8": {"type": "stat", "desc": "+1 to one stat"},
+        "9": {"type": "health", "desc": "+2 Health"},
+        "10": {"type": "choice", "desc": "+2 to any stat OR new ability"}
+      }
+    },
+    "mechanics": {
+      "dice": "d20",
+      "success_threshold": 15,
+      "partial_threshold": 10,
+      "enemy_tiers": {
+        "minion": {"health": 2, "damage": "d4"},
+        "standard": {"health": 6, "damage": "d6"},
+        "elite": {"health": 12, "damage": "d8"},
+        "boss": {"health": 20, "damage": "d10"}
+      }
+    },
+    "location_tags": [
+      {"value": "exposition", "label": "Exposition"},
+      {"value": "ally", "label": "Ally"},
+      {"value": "boss", "label": "Boss"},
+      {"value": "treasure", "label": "Treasure"},
+      {"value": "danger", "label": "Danger"},
+      {"value": "secret", "label": "Secret"},
+      {"value": "rest", "label": "Rest"}
+    ],
+    "art_style": "fantasy illustration, detailed, atmospheric lighting, medieval fantasy style",
+    "lore": "",
+    "dm_tone": "Be a fair and engaging narrator. Describe scenes vividly. Celebrate player creativity. Default to 'yes, and' whenever possible.",
+    "rules_addendum": ""
+  }
+}

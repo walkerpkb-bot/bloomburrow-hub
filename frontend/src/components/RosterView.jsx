@@ -1,42 +1,80 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 const API_BASE = '/api'
 
-const SPECIES = [
-  'Mousefolk', 'Rabbitfolk', 'Birdfolk', 'Batfolk', 'Frogfolk',
-  'Ratfolk', 'Otterfolk', 'Lizardfolk', 'Squirrelfolk', 'Raccoonfolk'
-]
-
-// XP thresholds for each level
-const LEVEL_THRESHOLDS = {
-  2: 2,
-  3: 4,
-  4: 7,
-  5: 11
+// Default values for backwards compatibility
+const DEFAULT_LEVELING = {
+  max_level: 5,
+  thresholds: [2, 4, 7, 11],
+  rewards: {
+    "2": { type: "stat", desc: "+1 to one stat" },
+    "3": { type: "health", desc: "+1 Health" },
+    "4": { type: "choice", desc: "New ability OR +1 Magic" },
+    "5": { type: "stat", desc: "+1 to one stat" }
+  }
 }
 
-// Get the level a character should be based on XP
-const getLevelForXP = (xp) => {
-  if (xp >= 11) return 5
-  if (xp >= 7) return 4
-  if (xp >= 4) return 3
-  if (xp >= 2) return 2
-  return 1
+const DEFAULT_STATS = {
+  names: ['Brave', 'Clever', 'Kind'],
+  colors: ['#c75050', '#5090c7', '#50c770']
 }
 
-// Check if character can level up
-const canLevelUp = (char) => {
-  const targetLevel = getLevelForXP(char.xp)
-  return targetLevel > char.level
+const DEFAULT_RESOURCES = {
+  health: { name: 'Hearts', symbol: '♥' },
+  magic: { name: 'Threads', symbol: '✦' }
 }
 
-function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSession, sessionActive, onRefresh, campaignId }) {
+function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSession, sessionActive, onRefresh, campaignId, systemConfig }) {
+  // Extract config or use defaults
+  const levelingConfig = systemConfig?.leveling || DEFAULT_LEVELING
+  const statsConfig = systemConfig?.stats || DEFAULT_STATS
+  const resourcesConfig = systemConfig?.resources || DEFAULT_RESOURCES
+
+  const statNames = statsConfig.names || DEFAULT_STATS.names
+  const statColors = statsConfig.colors || DEFAULT_STATS.colors
+  const healthConfig = resourcesConfig.health || DEFAULT_RESOURCES.health
+  const magicConfig = resourcesConfig.magic || DEFAULT_RESOURCES.magic
+
+  // Build level thresholds from config
+  const thresholds = levelingConfig.thresholds || DEFAULT_LEVELING.thresholds
+  const maxLevel = levelingConfig.max_level || DEFAULT_LEVELING.max_level
+  const rewards = levelingConfig.rewards || DEFAULT_LEVELING.rewards
+
+  // Get the level a character should be based on XP
+  const getLevelForXP = (xp) => {
+    let level = 1
+    for (let i = 0; i < thresholds.length; i++) {
+      if (xp >= thresholds[i]) {
+        level = i + 2 // Level 2 is at thresholds[0], etc.
+      }
+    }
+    return Math.min(level, maxLevel)
+  }
+
+  // Check if character can level up
+  const canLevelUp = (char) => {
+    const targetLevel = getLevelForXP(char.xp)
+    return targetLevel > char.level && char.level < maxLevel
+  }
+
+  // Get reward for next level
+  const getNextLevelReward = (char) => {
+    const nextLevel = char.level + 1
+    return rewards[String(nextLevel)] || null
+  }
+
   const [selectedIds, setSelectedIds] = useState([])
   const [showStartModal, setShowStartModal] = useState(false)
   const [quest, setQuest] = useState('')
   const [location, setLocation] = useState('')
   const [levelUpChar, setLevelUpChar] = useState(null)
   const [levelUpChoice, setLevelUpChoice] = useState(null)
+
+  // Authored campaign state
+  const [availableRuns, setAvailableRuns] = useState(null)
+  const [hasContent, setHasContent] = useState(false)
+  const [selectedRun, setSelectedRun] = useState(null)
+  const [loadingRuns, setLoadingRuns] = useState(false)
 
   const toggleSelect = (id) => {
     if (selectedIds.includes(id)) {
@@ -46,52 +84,104 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
     }
   }
 
-  const handleStartRun = () => {
-    if (selectedIds.length > 0 && quest && location) {
-      onStartSession(quest, location, selectedIds)
-      setShowStartModal(false)
-      setSelectedIds([])
-      setQuest('')
-      setLocation('')
+  // Fetch available runs when opening modal
+  const handleOpenStartModal = async () => {
+    setShowStartModal(true)
+    setLoadingRuns(true)
+
+    try {
+      const res = await fetch(`${API_BASE}/campaigns/${campaignId}/available-runs`)
+      const data = await res.json()
+
+      setHasContent(data.hasContent || false)
+      if (data.hasContent) {
+        setAvailableRuns(data)
+        // Auto-select first anchor if available
+        if (data.anchors?.length > 0) {
+          setSelectedRun({ type: 'anchor', ...data.anchors[0] })
+        } else if (data.fillers?.length > 0) {
+          setSelectedRun({ type: 'filler', ...data.fillers[0] })
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch available runs:', err)
+      setHasContent(false)
+    } finally {
+      setLoadingRuns(false)
     }
   }
 
-  const getNextLevelReward = (char) => {
-    const nextLevel = char.level + 1
-    switch (nextLevel) {
-      case 2: return { type: 'stat', desc: '+1 to one stat (max 4)' }
-      case 3: return { type: 'heart', desc: '+1 Heart (now 6 total)' }
-      case 4: return { type: 'choice', desc: 'New species ability OR +1 Thread' }
-      case 5: return { type: 'stat', desc: '+1 to one stat (max 5)' }
-      default: return null
+  const handleStartRun = async () => {
+    if (selectedIds.length === 0) return
+
+    if (hasContent && selectedRun) {
+      // Authored campaign: start the selected run
+      try {
+        const params = new URLSearchParams({ run_type: selectedRun.type })
+        if (selectedRun.type === 'anchor') {
+          params.append('run_id', selectedRun.id)
+        } else {
+          params.append('filler_index', selectedRun.index)
+        }
+
+        await fetch(`${API_BASE}/campaigns/${campaignId}/start-run?${params}`, {
+          method: 'POST'
+        })
+
+        // Start session with run details
+        onStartSession(selectedRun.hook, selectedRun.goal || 'Complete the quest', selectedIds)
+      } catch (err) {
+        console.error('Failed to start run:', err)
+        return
+      }
+    } else {
+      // Freestyle: use manual quest/location
+      if (!quest || !location) return
+      onStartSession(quest, location, selectedIds)
     }
+
+    setShowStartModal(false)
+    setSelectedIds([])
+    setQuest('')
+    setLocation('')
+    setSelectedRun(null)
+    setAvailableRuns(null)
   }
 
   const handleLevelUp = async () => {
     if (!levelUpChar) return
 
     const nextLevel = levelUpChar.level + 1
+    const reward = getNextLevelReward(levelUpChar)
 
-    // Level 3 doesn't need a choice, others do
-    if (nextLevel !== 3 && !levelUpChoice) return
+    // If reward needs a choice and none made, block
+    if (reward && (reward.type === 'stat' || reward.type === 'choice') && !levelUpChoice) return
 
     const updates = { level: nextLevel }
 
-    if (nextLevel === 3) {
-      // Auto +1 heart
-      updates.maxHearts = levelUpChar.maxHearts + 1
-    } else if (nextLevel === 2 || nextLevel === 5) {
-      // +1 to chosen stat
-      const maxStat = nextLevel === 5 ? 5 : 4
-      if (levelUpChar.stats[levelUpChoice] < maxStat) {
-        updates.stats = { ...levelUpChar.stats, [levelUpChoice]: levelUpChar.stats[levelUpChoice] + 1 }
+    if (reward) {
+      if (reward.type === 'health') {
+        // Auto +1 health
+        updates.maxHearts = (levelUpChar.maxHearts || healthConfig.starting || 5) + 1
+      } else if (reward.type === 'magic') {
+        // Auto +1 magic
+        updates.maxThreads = (levelUpChar.maxThreads || magicConfig.starting || 3) + 1
+      } else if (reward.type === 'stat') {
+        // +1 to chosen stat
+        const statKey = levelUpChoice
+        if (statKey && levelUpChar.stats[statKey] !== undefined) {
+          const maxStat = statsConfig.max_per_stat || 5
+          if (levelUpChar.stats[statKey] < maxStat) {
+            updates.stats = { ...levelUpChar.stats, [statKey]: levelUpChar.stats[statKey] + 1 }
+          }
+        }
+      } else if (reward.type === 'choice') {
+        // Player chose between magic or ability
+        if (levelUpChoice === 'magic') {
+          updates.maxThreads = (levelUpChar.maxThreads || magicConfig.starting || 3) + 1
+        }
+        // ability would need to be tracked separately
       }
-    } else if (nextLevel === 4) {
-      // Choice: thread or ability
-      if (levelUpChoice === 'thread') {
-        updates.maxThreads = levelUpChar.maxThreads + 1
-      }
-      // ability would need to be tracked separately
     }
 
     try {
@@ -127,14 +217,24 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
     }
   }
 
+  // Helper to get abbreviated stat name for display
+  const getStatAbbrev = (statName) => {
+    return statName.substring(0, 3).toUpperCase()
+  }
+
+  // Get stat keys (lowercase stat names)
+  const getStatKeys = () => {
+    return statNames.map(name => name.toLowerCase())
+  }
+
   return (
     <div>
       {!sessionActive && selectedIds.length > 0 && (
         <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <span>{selectedIds.length} character(s) selected</span>
-          <button 
-            className="btn btn-primary" 
-            onClick={() => setShowStartModal(true)}
+          <button
+            className="btn btn-primary"
+            onClick={handleOpenStartModal}
             style={{ flex: 'none', padding: '0.5rem 1rem' }}
           >
             Start Run
@@ -144,16 +244,16 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
 
       <div className="roster-view">
         {roster.map(char => (
-          <div 
-            key={char.id} 
+          <div
+            key={char.id}
             className={`card roster-card ${selectedIds.includes(char.id) ? 'selected' : ''}`}
             onClick={() => !sessionActive && toggleSelect(char.id)}
             style={{
               border: selectedIds.includes(char.id) ? '3px solid var(--forest-green)' : undefined
             }}
           >
-            <div className="card-header" style={{ 
-              background: selectedIds.includes(char.id) ? 'var(--forest-green)' : 'var(--warm-brown)' 
+            <div className="card-header" style={{
+              background: selectedIds.includes(char.id) ? 'var(--forest-green)' : 'var(--warm-brown)'
             }}>
               {char.name}
               <span className="level">Lvl {char.level}</span>
@@ -163,15 +263,15 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
                 {char.species}
               </div>
               <div className="stats">
-                <div className="stat">
-                  <span style={{ color: 'var(--berry-red)' }}>BRV</span> {char.stats.brave}
-                </div>
-                <div className="stat">
-                  <span style={{ color: 'var(--sky-blue)' }}>CLV</span> {char.stats.clever}
-                </div>
-                <div className="stat">
-                  <span style={{ color: 'var(--forest-green)' }}>KND</span> {char.stats.kind}
-                </div>
+                {statNames.map((statName, i) => {
+                  const key = statName.toLowerCase()
+                  const value = char.stats?.[key] || 0
+                  return (
+                    <div key={statName} className="stat">
+                      <span style={{ color: statColors[i] || '#666' }}>{getStatAbbrev(statName)}</span> {value}
+                    </div>
+                  )
+                })}
               </div>
               <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <span>XP: {char.xp}</span>
@@ -180,7 +280,7 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
                     onClick={(e) => { e.stopPropagation(); updateCharStat(char.id, 'maxHearts', -1) }}
                     style={{ padding: '0 4px', fontSize: '0.7rem', cursor: 'pointer', background: 'var(--parchment)', border: '1px solid var(--warm-brown)', borderRadius: '3px' }}
                   >-</button>
-                  <span style={{ color: 'var(--berry-red)' }}>♥{char.maxHearts}</span>
+                  <span style={{ color: 'var(--berry-red)' }}>{healthConfig.symbol}{char.maxHearts}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); updateCharStat(char.id, 'maxHearts', 1) }}
                     style={{ padding: '0 4px', fontSize: '0.7rem', cursor: 'pointer', background: 'var(--parchment)', border: '1px solid var(--warm-brown)', borderRadius: '3px' }}
@@ -191,7 +291,7 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
                     onClick={(e) => { e.stopPropagation(); updateCharStat(char.id, 'maxThreads', -1) }}
                     style={{ padding: '0 4px', fontSize: '0.7rem', cursor: 'pointer', background: 'var(--parchment)', border: '1px solid var(--warm-brown)', borderRadius: '3px' }}
                   >-</button>
-                  <span style={{ color: 'var(--golden)' }}>✦{char.maxThreads}</span>
+                  <span style={{ color: 'var(--golden)' }}>{magicConfig.symbol}{char.maxThreads}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); updateCharStat(char.id, 'maxThreads', 1) }}
                     style={{ padding: '0 4px', fontSize: '0.7rem', cursor: 'pointer', background: 'var(--parchment)', border: '1px solid var(--warm-brown)', borderRadius: '3px' }}
@@ -225,28 +325,85 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
         <div className="modal-overlay" onClick={() => setShowStartModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2 style={{ marginBottom: '1rem' }}>Start New Run</h2>
-            
-            <div className="form-group">
-              <label>Quest</label>
-              <input
-                type="text"
-                value={quest}
-                onChange={(e) => setQuest(e.target.value)}
-                placeholder="e.g., Rescue the missing scout"
-              />
-            </div>
 
-            <div className="form-group">
-              <label>Location</label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g., Bramble Hollow"
-              />
-            </div>
+            {loadingRuns ? (
+              <p style={{ color: 'var(--slate-muted)' }}>Loading available runs...</p>
+            ) : hasContent && availableRuns ? (
+              // Authored campaign: show run selection
+              <div>
+                {availableRuns.anchors?.length > 0 && (
+                  <div className="form-group">
+                    <label>Story Runs</label>
+                    <div className="run-options">
+                      {availableRuns.anchors.map(run => (
+                        <div
+                          key={run.id}
+                          className={`run-option ${selectedRun?.id === run.id ? 'selected' : ''}`}
+                          onClick={() => setSelectedRun({ type: 'anchor', ...run })}
+                        >
+                          <div className="run-option-title">{run.hook}</div>
+                          <div className="run-option-goal">Goal: {run.goal}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-            <div style={{ marginBottom: '1rem' }}>
+                {availableRuns.fillers?.length > 0 && (
+                  <div className="form-group">
+                    <label>Side Quests</label>
+                    <div className="run-options">
+                      {availableRuns.fillers.map(filler => (
+                        <div
+                          key={filler.index}
+                          className={`run-option filler ${selectedRun?.index === filler.index && selectedRun?.type === 'filler' ? 'selected' : ''}`}
+                          onClick={() => setSelectedRun({ type: 'filler', ...filler, hook: filler.seed })}
+                        >
+                          <div className="run-option-title">{filler.seed}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!availableRuns.anchors?.length && !availableRuns.fillers?.length && (
+                  <p style={{ color: 'var(--amber-glow)', fontStyle: 'italic' }}>
+                    No runs available. The campaign may be complete!
+                  </p>
+                )}
+
+                <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--twilight-purple)', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--slate-muted)' }}>
+                    Runs completed: {availableRuns.runs_completed} | Threat stage: {availableRuns.threat_stage + 1}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // Freestyle: manual quest/location entry
+              <div>
+                <div className="form-group">
+                  <label>Quest</label>
+                  <input
+                    type="text"
+                    value={quest}
+                    onChange={(e) => setQuest(e.target.value)}
+                    placeholder="e.g., Rescue the missing scout"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Location</label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g., Bramble Hollow"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
               <strong>Party:</strong>
               <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
                 {selectedIds.map(id => {
@@ -263,7 +420,7 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
               <button
                 className="btn btn-primary"
                 onClick={handleStartRun}
-                disabled={!quest || !location}
+                disabled={hasContent ? !selectedRun : (!quest || !location)}
               >
                 Begin Adventure!
               </button>
@@ -286,23 +443,25 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
               {getNextLevelReward(levelUpChar)?.desc}
             </p>
 
-            {/* Level 2 or 5: Choose a stat */}
-            {(levelUpChar.level + 1 === 2 || levelUpChar.level + 1 === 5) && (
+            {/* Stat choice reward */}
+            {getNextLevelReward(levelUpChar)?.type === 'stat' && (
               <div style={{ marginBottom: '1rem' }}>
                 <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Choose a stat to increase:</p>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {['brave', 'clever', 'kind'].map(stat => {
-                    const maxStat = levelUpChar.level + 1 === 5 ? 5 : 4
-                    const canIncrease = levelUpChar.stats[stat] < maxStat
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {statNames.map((statName, i) => {
+                    const key = statName.toLowerCase()
+                    const maxStat = statsConfig.max_per_stat || 5
+                    const currentVal = levelUpChar.stats?.[key] || 0
+                    const canIncrease = currentVal < maxStat
                     return (
                       <button
-                        key={stat}
-                        className={`btn ${levelUpChoice === stat ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => canIncrease && setLevelUpChoice(stat)}
+                        key={key}
+                        className={`btn ${levelUpChoice === key ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => canIncrease && setLevelUpChoice(key)}
                         disabled={!canIncrease}
-                        style={{ flex: 1, opacity: canIncrease ? 1 : 0.5 }}
+                        style={{ flex: 1, minWidth: '80px', opacity: canIncrease ? 1 : 0.5 }}
                       >
-                        {stat.toUpperCase()} ({levelUpChar.stats[stat]})
+                        {getStatAbbrev(statName)} ({currentVal})
                       </button>
                     )
                   })}
@@ -310,24 +469,31 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
               </div>
             )}
 
-            {/* Level 3: Auto heart */}
-            {levelUpChar.level + 1 === 3 && (
+            {/* Auto health reward */}
+            {getNextLevelReward(levelUpChar)?.type === 'health' && (
               <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--parchment)', borderRadius: '8px' }}>
-                <p>Your max Hearts will increase from {levelUpChar.maxHearts} to {levelUpChar.maxHearts + 1}!</p>
+                <p>Your max {healthConfig.name} will increase from {levelUpChar.maxHearts} to {levelUpChar.maxHearts + 1}!</p>
               </div>
             )}
 
-            {/* Level 4: Choose thread or ability */}
-            {levelUpChar.level + 1 === 4 && (
+            {/* Auto magic reward */}
+            {getNextLevelReward(levelUpChar)?.type === 'magic' && (
+              <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--parchment)', borderRadius: '8px' }}>
+                <p>Your max {magicConfig.name} will increase from {levelUpChar.maxThreads} to {levelUpChar.maxThreads + 1}!</p>
+              </div>
+            )}
+
+            {/* Choice reward (magic or ability) */}
+            {getNextLevelReward(levelUpChar)?.type === 'choice' && (
               <div style={{ marginBottom: '1rem' }}>
                 <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Choose your reward:</p>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
-                    className={`btn ${levelUpChoice === 'thread' ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setLevelUpChoice('thread')}
+                    className={`btn ${levelUpChoice === 'magic' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setLevelUpChoice('magic')}
                     style={{ flex: 1 }}
                   >
-                    +1 Thread
+                    +1 {magicConfig.name}
                   </button>
                   <button
                     className={`btn ${levelUpChoice === 'ability' ? 'btn-primary' : 'btn-secondary'}`}
@@ -347,7 +513,10 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
               <button
                 className="btn btn-primary"
                 onClick={handleLevelUp}
-                disabled={levelUpChar.level + 1 !== 3 && !levelUpChoice}
+                disabled={
+                  getNextLevelReward(levelUpChar)?.type === 'stat' && !levelUpChoice ||
+                  getNextLevelReward(levelUpChar)?.type === 'choice' && !levelUpChoice
+                }
               >
                 Confirm Level Up
               </button>
