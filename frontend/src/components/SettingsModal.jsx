@@ -282,6 +282,7 @@ function SettingsModal({ campaigns, onClose, onRefresh }) {
           onSaveDraft={handleSaveDraft}
           initialData={draftInitialData}
           initialSystem={draftInitialSystem}
+          campaignId={editingDraftId}
         />
       </div>
     )

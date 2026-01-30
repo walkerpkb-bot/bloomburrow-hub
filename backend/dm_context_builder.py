@@ -3,7 +3,7 @@ DM Context Builder
 Constructs the system prompt injection from campaign content and state
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 
 def build_dm_system_prompt(system_config: Dict[str, Any]) -> str:
@@ -216,7 +216,52 @@ def build_lore_section(system_config: Dict[str, Any]) -> str:
 """
 
 
-def build_dm_system_injection(dm_context: dict, party_status: Optional[dict] = None) -> str:
+def format_author_notes_for_dm(notes: list) -> str:
+    """
+    Format author notes for injection into the gameplay DM context.
+
+    Args:
+        notes: List of DMPrepNote dicts (author_notes + pinned)
+
+    Returns:
+        Formatted markdown string for DM system prompt
+    """
+    if not notes:
+        return ""
+
+    # Group by category
+    by_category: Dict[str, list] = {}
+    for note in notes:
+        category = note.get('category', 'general')
+        if category not in by_category:
+            by_category[category] = []
+        by_category[category].append(note)
+
+    # Category display order and labels
+    category_order = ['voice', 'pacing', 'secret', 'reminder', 'general']
+    category_labels = {
+        'voice': 'NPC Voices & Personalities',
+        'pacing': 'Pacing & Tension',
+        'secret': 'Secrets to Protect',
+        'reminder': 'Important Reminders',
+        'general': 'General Guidance'
+    }
+
+    section = "## Author Guidance for DM\n\n*The campaign author has prepared the following guidance:*\n"
+
+    for cat in category_order:
+        if cat in by_category:
+            cat_notes = by_category[cat]
+            label = category_labels.get(cat, cat.title())
+            section += f"\n### {label}\n"
+            for note in cat_notes:
+                related = f" *(re: {note['related_to']})*" if note.get('related_to') else ""
+                section += f"- {note.get('content', '')}{related}\n"
+
+    return section
+
+
+def build_dm_system_injection(dm_context: dict, party_status: Optional[dict] = None, author_notes: Optional[list] = None) -> str:
     """
     Build the campaign-specific portion of the DM system prompt.
     
@@ -318,7 +363,13 @@ def build_dm_system_injection(dm_context: dict, party_status: Optional[dict] = N
                 party_section += f"\n- Gear: {', '.join(member['gear'])}"
             party_section += "\n"
         sections.append(party_section)
-    
+
+    # Author guidance for DM (from DM Prep notes)
+    if author_notes:
+        guidance_section = format_author_notes_for_dm(author_notes)
+        if guidance_section:
+            sections.append(guidance_section)
+
     # Run progress
     progress_section = f"""## Campaign Progress
 

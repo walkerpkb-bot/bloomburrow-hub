@@ -464,6 +464,27 @@ class NPCState(BaseModel):
     secrets_revealed: list[str] = Field(default_factory=list)
 
 
+# === DM Prep Models ===
+
+class DMPrepNote(BaseModel):
+    """A note from the campaign author for DMs"""
+    id: str = Field(..., description="Unique identifier for the note")
+    content: str = Field(..., min_length=1, max_length=1000, description="The note content")
+    category: Literal["reminder", "voice", "pacing", "secret", "general"] = Field(
+        "general", description="Category of the note"
+    )
+    related_to: Optional[str] = Field(None, description="NPC name, location, or run_id this relates to")
+    created_at: str = Field(..., description="ISO datetime when the note was created")
+
+
+class DMPrepData(BaseModel):
+    """Complete DM prep data for a campaign"""
+    author_notes: list[DMPrepNote] = Field(default_factory=list, description="Manually added notes")
+    conversation: list[dict] = Field(default_factory=list, description="Chat history with prep coach")
+    pinned: list[DMPrepNote] = Field(default_factory=list, description="Insights pinned from conversation")
+    last_accessed: Optional[str] = Field(None, description="ISO datetime of last access")
+
+
 class CampaignState(BaseModel):
     """Runtime state tracking for a campaign"""
     threat_stage: int = 0

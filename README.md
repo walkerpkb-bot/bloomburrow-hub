@@ -13,6 +13,7 @@ A web-based companion app for playing tabletop roguelike RPGs. Originally built 
 - **AI Scene Illustrations**: Generate atmospheric scene images during play
 - **Dice Roller**: Digital dice with automatic threshold checking
 - **Party Tracker**: Real-time HP and resource management during runs
+- **DM Prep Coach**: AI-assisted campaign preparation with author notes that flow into gameplay DM context
 
 ## Setup
 
@@ -78,6 +79,7 @@ bloomburrow-hub/
 │   ├── main.py                 # FastAPI server
 │   ├── campaign_schema.py      # Pydantic models for campaign system
 │   ├── dm_context_builder.py   # Builds DM prompts from campaign config
+│   ├── prep_coach_builder.py   # Builds prompts for DM Prep Coach
 │   ├── migrate_to_campaigns.py # Data migration script
 │   ├── requirements.txt
 │   ├── data/
@@ -92,6 +94,7 @@ bloomburrow-hub/
 │   │           ├── stash.json
 │   │           ├── system.json     # Campaign system config
 │   │           ├── content.json    # Campaign content (NPCs, locations, etc.)
+│   │           ├── dm_prep.json    # DM prep notes and conversation
 │   │           ├── current_session.json
 │   │           ├── banner.jpg (optional)
 │   │           └── images/
@@ -114,7 +117,9 @@ bloomburrow-hub/
 │   │       ├── RosterView.jsx
 │   │       ├── CharacterSheet.jsx
 │   │       ├── TownView.jsx
-│   │       └── SessionPanel.jsx
+│   │       ├── SessionPanel.jsx
+│   │       ├── DMPrepSection.jsx   # DM Prep tab container
+│   │       └── PrepCoachChat.jsx   # Prep Coach chat interface
 │   └── package.json
 └── README.md
 ```
@@ -169,6 +174,13 @@ Each campaign can have a fully customized game system:
 | `/campaigns/{id}/system` | GET/PUT | Get or update system config |
 | `/campaigns/{id}/content` | GET/POST | Get or save campaign content |
 | `/campaigns/{id}/draft` | GET/POST | Get or save draft content |
+| `/campaigns/{id}/dm-prep` | GET | Get DM prep notes and conversation |
+| `/campaigns/{id}/dm-prep/message` | POST | Chat with Prep Coach AI |
+| `/campaigns/{id}/dm-prep/note` | POST | Create author note |
+| `/campaigns/{id}/dm-prep/note/{note_id}` | PUT/DELETE | Update or delete note |
+| `/campaigns/{id}/dm-prep/pin` | POST | Pin insight from conversation |
+| `/campaigns/{id}/dm-prep/pin/{pin_id}` | DELETE | Unpin insight |
+| `/campaigns/{id}/dm-prep/conversation` | DELETE | Clear conversation history |
 
 ### Template Endpoints
 
@@ -230,6 +242,12 @@ Use the campaign form to configure everything:
    - NPCs: Characters with secrets
    - Locations: Places to explore
    - Runs: Scripted and filler adventures
+
+3. **DM Prep Tab**: Prepare guidance for DMs
+   - Chat with the Prep Coach AI to think through NPC voices, pacing, secrets
+   - Create author notes that get injected into the gameplay DM's context
+   - Pin useful insights from conversations
+   - Notes are categorized: voice, pacing, secret, reminder, general
 
 ### Using Templates
 

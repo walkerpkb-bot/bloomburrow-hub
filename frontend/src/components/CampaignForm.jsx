@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import DMPrepSection from './DMPrepSection'
 
 const API_BASE = '/api'
 
@@ -98,7 +99,7 @@ const DEFAULT_SYSTEM = {
   rules_addendum: '',
 }
 
-function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, initialSystem = null }) {
+function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, initialSystem = null, campaignId = null }) {
   // === Templates State ===
   const [templates, setTemplates] = useState([])
   const [selectedTemplate, setSelectedTemplate] = useState('')
@@ -636,7 +637,7 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
   }
 
   // === Section navigation ===
-  const sections = ['system', 'basics', 'threat', 'npcs', 'locations', 'runs', 'fillers']
+  const sections = ['system', 'basics', 'threat', 'npcs', 'locations', 'runs', 'fillers', 'dm-prep']
   const sectionLabels = {
     system: 'System',
     basics: 'Basics',
@@ -644,7 +645,8 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
     npcs: 'NPCs',
     locations: 'Locations',
     runs: 'Anchor Runs',
-    fillers: 'Filler Seeds'
+    fillers: 'Filler Seeds',
+    'dm-prep': 'DM Prep'
   }
 
   const systemSections = ['general', 'species', 'stats', 'resources', 'buildings', 'leveling', 'mechanics', 'content']
@@ -1683,6 +1685,23 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
             {fillerSeeds.length < VALIDATION.maxFillerSeeds && (
               <button className="add-btn" onClick={addFillerSeed}>+ Add Filler Seed</button>
             )}
+          </div>
+        )}
+
+        {/* === DM PREP === */}
+        {currentSection === 'dm-prep' && campaignId && (
+          <DMPrepSection
+            campaignId={campaignId}
+            npcs={npcs}
+            locations={locations}
+            runs={anchorRuns}
+          />
+        )}
+        {currentSection === 'dm-prep' && !campaignId && (
+          <div className="form-section">
+            <p className="text-center" style={{ padding: '2rem', color: 'var(--slate-muted)' }}>
+              DM Prep is available after saving the campaign. Save as draft first to access this feature.
+            </p>
           </div>
         )}
 
