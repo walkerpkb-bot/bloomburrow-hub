@@ -544,7 +544,7 @@ def validate_campaign_content(data: dict) -> ValidationResult:
         if len(content.filler_seeds) < len(content.anchor_runs):
             warnings.append("Consider adding more filler seeds for variety between anchor runs")
         
-        return ValidationResult(valid=True, warnings=warnings)
+        return ValidationResult(valid=len(errors) == 0, errors=errors, warnings=warnings)
         
     except Exception as e:
         error_str = str(e)

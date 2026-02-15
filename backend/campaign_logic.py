@@ -112,7 +112,7 @@ def build_dm_context(content: CampaignContent, state: CampaignState, run_details
         npc_key = npc.name.lower().replace(" ", "_")
         npc_runtime = state.npcs.get(npc_key, NPCState())
         npc_states[npc.name] = {
-            "species": npc.species.value,
+            "species": npc.species,
             "role": npc.role,
             "wants": npc.wants,
             "secret": npc.secret,
@@ -128,7 +128,7 @@ def build_dm_context(content: CampaignContent, state: CampaignState, run_details
             "name": content.name,
             "premise": content.premise,
             "tone": content.tone,
-            "locations": [{"name": loc.name, "vibe": loc.vibe, "contains": [t.value for t in loc.contains]} for loc in content.locations]
+            "locations": [{"name": loc.name, "vibe": loc.vibe, "contains": loc.contains} for loc in content.locations]
         },
         "party_knows": party_knows,
         "party_does_not_know": party_does_not_know,
