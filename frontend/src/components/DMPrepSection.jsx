@@ -144,7 +144,7 @@ function DMPrepSection({ campaignId, npcs = [], locations = [], runs = [] }) {
     { value: '', label: 'None' },
     ...npcs.filter(n => n.name).map(n => ({ value: n.name, label: `NPC: ${n.name}` })),
     ...locations.filter(l => l.name).map(l => ({ value: l.name, label: `Location: ${l.name}` })),
-    ...runs.filter(r => r.id).map(r => ({ value: r.id, label: `Run: ${r.id}` }))
+    ...runs.filter(r => r.id).map(r => ({ value: r.id, label: `Episode: ${r.id}` }))
   ]
 
   if (loading) {

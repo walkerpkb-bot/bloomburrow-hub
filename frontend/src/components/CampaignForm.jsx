@@ -4,15 +4,15 @@ import { fetchTemplates as apiGetTemplates, fetchTemplate } from '../api/templat
 
 const TRIGGER_TYPES = [
   { value: 'start', label: 'Available from start' },
-  { value: 'after_run', label: 'After completing run...' },
-  { value: 'after_runs_count', label: 'After X runs completed' },
+  { value: 'after_run', label: 'After completing episode...' },
+  { value: 'after_runs_count', label: 'After X episodes completed' },
   { value: 'threat_stage', label: 'When threat reaches stage...' },
 ]
 
 const THREAT_ADVANCE_OPTIONS = [
-  { value: 'run_failed', label: 'When a run fails' },
-  { value: 'every_2_runs', label: 'Every 2 runs' },
-  { value: 'every_3_runs', label: 'Every 3 runs' },
+  { value: 'run_failed', label: 'When an episode fails' },
+  { value: 'every_2_runs', label: 'Every 2 episodes' },
+  { value: 'every_3_runs', label: 'Every 3 episodes' },
   { value: 'manual', label: 'Manual only' },
 ]
 
@@ -328,26 +328,26 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
     // Anchor runs
     const validRuns = anchorRuns.filter(r => r.id && r.hook && r.goal && r.reveal)
     if (validRuns.length < VALIDATION.minAnchorRuns) {
-      errs.push(`At least ${VALIDATION.minAnchorRuns} complete anchor runs required`)
+      errs.push(`At least ${VALIDATION.minAnchorRuns} complete episodes required`)
     }
 
     // Check for start run
     const hasStartRun = anchorRuns.some(r => r.trigger.type === 'start' && r.id && r.hook)
     if (!hasStartRun) {
-      errs.push('At least one anchor run must be available from start')
+      errs.push('At least one episode must be available from start')
     }
 
     // Check run ID uniqueness
     const runIds = anchorRuns.map(r => r.id).filter(id => id)
     if (new Set(runIds).size !== runIds.length) {
-      errs.push('Anchor run IDs must be unique')
+      errs.push('Episode IDs must be unique')
     }
 
     // Check run ID format
     const idPattern = /^[a-z][a-z0-9_]*$/
     for (const run of anchorRuns) {
       if (run.id && !idPattern.test(run.id)) {
-        errs.push(`Run ID "${run.id}" must start with letter, use only lowercase, numbers, underscores`)
+        errs.push(`Episode ID "${run.id}" must start with letter, use only lowercase, numbers, underscores`)
       }
     }
 
@@ -355,10 +355,10 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
     for (const run of anchorRuns) {
       if (run.trigger.type === 'after_run' && run.trigger.value) {
         if (!runIds.includes(run.trigger.value)) {
-          errs.push(`Run "${run.id}" references unknown run "${run.trigger.value}"`)
+          errs.push(`Episode "${run.id}" references unknown episode "${run.trigger.value}"`)
         }
         if (run.trigger.value === run.id) {
-          errs.push(`Run "${run.id}" cannot trigger after itself`)
+          errs.push(`Episode "${run.id}" cannot trigger after itself`)
         }
       }
     }
@@ -641,7 +641,7 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
     threat: 'Threat',
     npcs: 'NPCs',
     locations: 'Locations',
-    runs: 'Anchor Runs',
+    runs: 'Episodes',
     fillers: 'Filler Seeds',
     'dm-prep': 'DM Prep'
   }
@@ -1499,17 +1499,17 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
           </div>
         )}
 
-        {/* === ANCHOR RUNS === */}
+        {/* === EPISODES === */}
         {currentSection === 'runs' && (
           <div className="form-section">
             <p className="section-intro">
-              Story-beat runs that advance the plot. The AI will generate journey/site details from your seeds.
+              Story-beat episodes that advance the plot. The AI will generate journey/site details from your seeds.
             </p>
 
             {anchorRuns.map((run, i) => (
               <div key={i} className="sub-form-card">
                 <div className="sub-form-header">
-                  <span>Anchor Run {i + 1}</span>
+                  <span>Episode {i + 1}</span>
                   {anchorRuns.length > VALIDATION.minAnchorRuns && (
                     <button className="remove-btn" onClick={() => removeAnchorRun(i)}>Remove</button>
                   )}
@@ -1607,12 +1607,12 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
 
                   {run.trigger.type === 'after_run' && (
                     <div className="form-group half">
-                      <label>After Run</label>
+                      <label>After Episode</label>
                       <select
                         value={run.trigger.value || ''}
                         onChange={e => updateRunTrigger(i, 'value', e.target.value)}
                       >
-                        <option value="">Select run...</option>
+                        <option value="">Select episode...</option>
                         {anchorRuns.filter((r, j) => j !== i && r.id).map(r => (
                           <option key={r.id} value={r.id}>{r.id}</option>
                         ))}
@@ -1622,7 +1622,7 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
 
                   {run.trigger.type === 'after_runs_count' && (
                     <div className="form-group half">
-                      <label>After X Runs</label>
+                      <label>After X Episodes</label>
                       <input
                         type="number"
                         min="1"
@@ -1650,7 +1650,7 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
             ))}
 
             {anchorRuns.length < VALIDATION.maxAnchorRuns && (
-              <button className="add-btn" onClick={addAnchorRun}>+ Add Anchor Run</button>
+              <button className="add-btn" onClick={addAnchorRun}>+ Add Episode</button>
             )}
           </div>
         )}
@@ -1659,7 +1659,7 @@ function CampaignForm({ onSubmit, onCancel, onSaveDraft, initialData = null, ini
         {currentSection === 'fillers' && (
           <div className="form-section">
             <p className="section-intro">
-              One-liner prompts the AI can expand into full runs between anchor beats.
+              One-liner prompts the AI can expand into full episodes between story beats.
               Each seed is used once, then removed from the pool.
             </p>
 

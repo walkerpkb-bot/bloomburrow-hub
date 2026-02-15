@@ -224,7 +224,7 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
             onClick={handleOpenStartModal}
             style={{ flex: 'none', padding: '0.5rem 1rem' }}
           >
-            Start Run
+            Start Episode
           </button>
         </div>
       )}
@@ -307,20 +307,20 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
         </div>
       </div>
 
-      {/* Start Run Modal */}
+      {/* Start Episode Modal */}
       {showStartModal && (
         <div className="modal-overlay" onClick={() => setShowStartModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2 style={{ marginBottom: '1rem' }}>Start New Run</h2>
+            <h2 style={{ marginBottom: '1rem' }}>Start New Episode</h2>
 
             {loadingRuns ? (
-              <p style={{ color: 'var(--slate-muted)' }}>Loading available runs...</p>
+              <p style={{ color: 'var(--slate-muted)' }}>Loading available episodes...</p>
             ) : hasContent && availableRuns ? (
               // Authored campaign: show run selection
               <div>
                 {availableRuns.anchors?.length > 0 && (
                   <div className="form-group">
-                    <label>Story Runs</label>
+                    <label>Story Episodes</label>
                     <div className="run-options">
                       {availableRuns.anchors.map(run => (
                         <div
@@ -355,13 +355,13 @@ function RosterView({ roster, onCreateCharacter, onSelectCharacter, onStartSessi
 
                 {!availableRuns.anchors?.length && !availableRuns.fillers?.length && (
                   <p style={{ color: 'var(--amber-glow)', fontStyle: 'italic' }}>
-                    No runs available. The campaign may be complete!
+                    No episodes available. The campaign may be complete!
                   </p>
                 )}
 
                 <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--twilight-purple)', borderRadius: '8px' }}>
                   <div style={{ fontSize: '0.85rem', color: 'var(--slate-muted)' }}>
-                    Runs completed: {availableRuns.runs_completed} | Threat stage: {availableRuns.threat_stage + 1}
+                    Episodes completed: {availableRuns.runs_completed} | Threat stage: {availableRuns.threat_stage + 1}
                   </div>
                 </div>
               </div>
